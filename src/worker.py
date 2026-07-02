@@ -28,6 +28,10 @@ class RegistrationWorker:
         log.info("Worker started.")
         
         while True:
+            if config.STOP_FLAG:
+                log.warning("🛑 Nhận lệnh STOP, worker kết thúc.")
+                break
+
             try:
                 # Lấy email từ queue, timeout 5 giây để thoát nếu hết hàng
                 email_data = self.email_queue.get(timeout=5)
@@ -73,6 +77,10 @@ class RegistrationWorker:
             max_retries = 1
             success = False
             for attempt in range(1, max_retries + 1):
+                if config.STOP_FLAG:
+                    log.warning("🛑 Nhận lệnh STOP, hủy bỏ proxy check.")
+                    break
+
                 proxy = None
                 proxy_idx = -1
                 proxy_str = "Direct"
@@ -213,6 +221,8 @@ class RegistrationWorker:
             # ═══════════════════════════════════════════════
             # CÁC BƯỚC ĐĂNG KÝ (CÓ THỂ RESUME TỪ CHECKPOINT)
             # ═══════════════════════════════════════════════
+
+            if config.STOP_FLAG: raise Exception("KeyboardInterrupt")
 
             # Step 1: Vào trang chủ + Click link đăng ký
             if 1 not in cp.get("steps_done", []):

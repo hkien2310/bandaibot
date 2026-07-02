@@ -63,3 +63,5 @@ DEFAULT_PREFECTURE = _json_config.get("default_prefecture", "東京都")
 # Giữ browser mở sau khi xong để debug (set false để tự đóng trong production)
 KEEP_BROWSER_OPEN = _json_config.get("keep_browser_open", False)
 
+# Biến cờ hiệu toàn cục để ngắt bot (Stop button)
+STOP_FLAG = False

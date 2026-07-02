@@ -91,6 +91,10 @@ async def main_async():
 
     # 5. Vòng lặp chính: Đọc email PENDING từ Sheets và chạy
     while True:
+        if config.STOP_FLAG:
+            log.warning("🛑 Người dùng đã bấm Stop, dừng vòng lặp chính.")
+            break
+
         # Lấy từng mẻ email để chạy
         emails_to_process = sheets_manager.get_pending_emails(batch_size=batch_size)
         

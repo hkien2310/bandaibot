@@ -117,9 +117,15 @@ class NamcoBotGUI:
         ttk.Checkbutton(chk_frame, text="Chạy ngầm (Headless)", variable=self.headless_var).pack(side=tk.LEFT, padx=10)
         ttk.Checkbutton(chk_frame, text="Dùng Proxy", variable=self.proxy_var).pack(side=tk.LEFT, padx=10)
         
-        # Row 4: Start button
-        self.start_btn = ttk.Button(frame, text="🚀 BẮT ĐẦU CHẠY", command=self.start_bot, width=30)
-        self.start_btn.grid(row=4, column=0, columnspan=3, pady=10)
+        # Row 4: Start/Stop button
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=4, column=0, columnspan=3, pady=10)
+        
+        self.start_btn = ttk.Button(btn_frame, text="🚀 BẮT ĐẦU CHẠY", command=self.start_bot, width=20)
+        self.start_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.stop_btn = ttk.Button(btn_frame, text="🛑 DỪNG LẠI", command=self.stop_bot, width=20, state=tk.DISABLED)
+        self.stop_btn.pack(side=tk.LEFT, padx=5)
         
         # Row 5: Mini Log Listbox
         ttk.Label(frame, text="Tiến trình đang chạy:").grid(row=5, column=0, sticky=tk.W, pady=5)
@@ -143,7 +149,9 @@ class NamcoBotGUI:
             "⚠️",
             "🔄",
             "⏳",
-            "🎉"
+            "🎉",
+            "🛑",
+            "proxy"
         ]
         
         while not self.log_queue.empty():
@@ -157,7 +165,8 @@ class NamcoBotGUI:
                 msg = msg.split("—", 1)[1].strip()
             
             # Chỉ hiển thị các log có chứa từ khoá quan trọng (Dành cho end-user)
-            is_user_friendly = any(kw in msg for kw in user_keywords)
+            msg_lower = msg.lower()
+            is_user_friendly = any(kw.lower() in msg_lower for kw in user_keywords)
             if not is_user_friendly:
                 continue
                 
@@ -182,7 +191,11 @@ class NamcoBotGUI:
         write_env_use_proxy(self.proxy_var.get())
 
     def start_bot(self):
+        import src.config as bot_config
+        bot_config.STOP_FLAG = False  # Reset flag khi bắt đầu
+
         self.start_btn.config(state=tk.DISABLED, text="⏳ ĐANG CHẠY...")
+        self.stop_btn.config(state=tk.NORMAL)
         self.log_listbox.insert(tk.END, "🚀 Đang khởi động tiến trình, vui lòng không tắt...")
         self.log_listbox.see(tk.END)
         self.save_settings()
@@ -191,6 +204,13 @@ class NamcoBotGUI:
         limit = int(limit_val) if limit_val and limit_val.isdigit() else 0
         
         threading.Thread(target=self.run_bot_thread, args=(limit,), daemon=True).start()
+        
+    def stop_bot(self):
+        self.stop_btn.config(state=tk.DISABLED, text="⏳ ĐANG DỪNG...")
+        self.log_listbox.insert(tk.END, "🛑 Đang gửi lệnh dừng đến các worker. Vui lòng đợi...")
+        self.log_listbox.see(tk.END)
+        import src.config as bot_config
+        bot_config.STOP_FLAG = True
         
     def run_bot_thread(self, limit):
         import importlib
@@ -226,6 +246,7 @@ class NamcoBotGUI:
         finally:
             def update_done():
                 self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
+                self.stop_btn.config(state=tk.DISABLED, text="🛑 DỪNG LẠI")
                 self.log_listbox.insert(tk.END, "✅ Trạng thái: Đã hoàn tất công việc!")
                 self.log_listbox.see(tk.END)
             self.root.after(0, update_done)
