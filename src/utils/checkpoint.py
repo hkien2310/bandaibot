@@ -20,11 +20,12 @@ Schema:
 import json
 import os
 import re
+import src.config as config
 from src.utils.logger import get_logger
 
 log = get_logger("checkpoint")
 
-CHECKPOINT_DIR = "data/checkpoints"
+CHECKPOINT_DIR = str(config.DATA_DIR / "checkpoints")
 
 
 def _email_to_filename(email: str) -> str:

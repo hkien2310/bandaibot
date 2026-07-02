@@ -26,7 +26,7 @@ def _get_apikey() -> str:
             return _apikey
 
         # 2. Disk cache check
-        cache_path = Path("data/sms_apikey.json")
+        cache_path = config.DATA_DIR / "sms_apikey.json"
         if cache_path.exists():
             try:
                 with open(cache_path, "r", encoding="utf-8") as f:

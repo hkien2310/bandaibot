@@ -337,7 +337,7 @@ class RegistrationWorker:
             # Chụp screenshot lỗi nếu trình duyệt vẫn đang chạy
             if browser and browser.context:
                 try:
-                    screenshot_path = f"data/error_fatal_{email.replace('+', '_')}.png"
+                    screenshot_path = str(config.DATA_DIR / f"error_fatal_{email.replace('+', '_')}.png")
                     if browser.context.pages:
                         await browser.context.pages[0].screenshot(path=screenshot_path)
                         log.info(f"Đã chụp screenshot lỗi fatal: {screenshot_path}")

@@ -29,7 +29,7 @@ async def run_step5(page: Page, phone: str, pkey: str) -> str:
         if inputs:
             otp_input = inputs[0]
         else:
-            sc_path = f"data/err_sms_input_{int(time.time())}.png"
+            sc_path = str(config.DATA_DIR / f"err_sms_input_{int(time.time())}.png")
             await page.screenshot(path=sc_path)
             log.error(f"❌ Không tìm thấy ô nhập OTP SMS! Screenshot: {sc_path}")
             raise RuntimeError("Không tìm thấy ô nhập OTP SMS!")
@@ -109,7 +109,7 @@ async def run_step5(page: Page, phone: str, pkey: str) -> str:
                     log.info(f"✅ Đã về đích an toàn tại trang: {page.url}")
                 except Exception:
                     log.error(f"❌ Lỗi: Sau khi nhập OTP, không thấy về trang top.html! URL hiện tại: {page.url}")
-                    sc_path = f"data/err_sms_otp_fail_{int(time.time())}.png"
+                    sc_path = str(config.DATA_DIR / f"err_sms_otp_fail_{int(time.time())}.png")
                     await page.screenshot(path=sc_path)
                     raise RuntimeError("SMS OTP verification failed: Không về được trang top.html")
             else:

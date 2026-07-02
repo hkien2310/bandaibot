@@ -271,7 +271,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
     )
 
     if not email_otp:
-        sc_path = f"data/err_email_otp_{int(time.time())}.png"
+        sc_path = str(config.DATA_DIR / f"err_email_otp_{int(time.time())}.png")
         await page.screenshot(path=sc_path)
         raise TimeoutError(f"Không nhận được OTP email sau {config.EMAIL_OTP_TIMEOUT}s! Screenshot: {sc_path}")
 
