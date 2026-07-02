@@ -151,7 +151,22 @@ class NamcoBotGUI:
             "⏳",
             "🎉",
             "🛑",
-            "proxy"
+            "🔥",
+            "🚧",
+            "proxy",
+            "[ERROR]",
+            "[WARNING]",
+            "Không còn",
+            "kết nối",
+            "Sheets",
+            "SMS",
+            "HOÀN TẤT",
+            "BẮT ĐẦU",
+            "GIỚI HẠN",
+            "Loaded",
+            "balance",
+            "Hoàn thành mẻ",
+            "Step",
         ]
         
         while not self.log_queue.empty():
@@ -161,14 +176,20 @@ class NamcoBotGUI:
                 continue
                 
             # Trích xuất phần nội dung chính của log
+            # Kiểm tra keyword trên raw_msg trước khi split (để bắt [ERROR], [WARNING])
+            raw_lower = msg.lower()
             if "—" in msg:
-                msg = msg.split("—", 1)[1].strip()
+                display_msg = msg.split("—", 1)[1].strip()
+            else:
+                display_msg = msg
             
             # Chỉ hiển thị các log có chứa từ khoá quan trọng (Dành cho end-user)
-            msg_lower = msg.lower()
-            is_user_friendly = any(kw.lower() in msg_lower for kw in user_keywords)
+            check_text = raw_lower + " " + display_msg.lower()
+            is_user_friendly = any(kw.lower() in check_text for kw in user_keywords)
             if not is_user_friendly:
                 continue
+            
+            msg = display_msg
                 
             self.log_listbox.insert(tk.END, "• " + msg)
             
