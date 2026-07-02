@@ -46,6 +46,15 @@ def _connect() -> imaplib.IMAP4_SSL:
     log.info("✅ IMAP login OK")
     return imap
 
+def _connect_individual(email_addr: str, email_pass: str) -> imaplib.IMAP4_SSL:
+    """Connect to IMAP server using individual email credentials."""
+    host, port = _get_imap_host(email_addr)
+    log.info(f"IMAP (Individual) → {host}:{port} ({email_addr})")
+    imap = imaplib.IMAP4_SSL(host, port)
+    imap.login(email_addr, email_pass)
+    log.info("✅ IMAP individual login OK")
+    return imap
+
 def _ensure_shared_imap() -> imaplib.IMAP4_SSL:
     global _shared_imap
     if _shared_imap is not None:
@@ -233,33 +242,57 @@ def get_bandai_namco_otp(
     timeout: int = 120,
     poll_interval: int = 5,
     target_email: str = "",
+    target_password: str = "",
 ) -> str | None:
-    """Poll catch-all inbox for Bandai Namco ID OTP code."""
-    if not config.CATCHALL_INBOX or not config.CATCHALL_PASSWORD:
-        log.error("❌ CATCHALL_INBOX or CATCHALL_PASSWORD not configured!")
-        return None
+    """Poll inbox for Bandai Namco ID OTP code.
+    
+    If target_password is provided, login directly to that email's IMAP.
+    Otherwise, fall back to catch-all inbox.
+    """
+    use_individual = bool(target_password and target_email)
+    
+    if not use_individual:
+        if not config.CATCHALL_INBOX or not config.CATCHALL_PASSWORD:
+            log.error("❌ Không có CATCHALL config và cũng không có email_password!")
+            return None
 
     if since_ts is None:
         since_ts = time.time()
 
     log.info(
-        f"⏳ Waiting for Bandai Namco ID OTP | Inbox: {config.CATCHALL_INBOX} "
+        f"⏳ Waiting for Bandai Namco ID OTP | Inbox: {'Individual IMAP' if use_individual else config.CATCHALL_INBOX} "
         f"| Since: {datetime.fromtimestamp(since_ts).strftime('%H:%M:%S')} "
         f"| Target: {target_email} | Timeout: {timeout}s"
     )
 
     deadline = time.time() + timeout
     
-    # We acquire lock for each attempt to avoid blocking other threads permanently
     while time.time() < deadline:
-        with _IMAP_LOCK:
-            try:
-                imap = _ensure_shared_imap()
-                otp = fetch_otp_since(since_ts=since_ts, imap=imap, target_email=target_email)
-                if otp:
-                    return otp
-            except Exception as e:
-                log.warning(f"IMAP search error, will reconnect: {e}")
+        try:
+            if use_individual:
+                # Mỗi lần poll tạo kết nối mới (tránh timeout IMAP)
+                imap = _connect_individual(target_email, target_password)
+                try:
+                    otp = fetch_otp_since(since_ts=since_ts, imap=imap, target_email=target_email)
+                    if otp:
+                        return otp
+                finally:
+                    try:
+                        imap.logout()
+                    except Exception:
+                        pass
+            else:
+                with _IMAP_LOCK:
+                    imap = _ensure_shared_imap()
+                    otp = fetch_otp_since(since_ts=since_ts, imap=imap, target_email=target_email)
+                    if otp:
+                        return otp
+        except imaplib.IMAP4.error as e:
+            log.error(f"❌ IMAP login failed for {target_email}: {e}")
+            return None  # Không retry nếu sai mật khẩu hoặc bị khoá
+        except Exception as e:
+            log.warning(f"IMAP search error, will reconnect: {e}")
+            if not use_individual:
                 global _shared_imap
                 _shared_imap = None # Trigger reconnect next time
 

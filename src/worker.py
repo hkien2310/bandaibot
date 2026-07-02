@@ -30,7 +30,10 @@ class RegistrationWorker:
         while True:
             try:
                 # Lấy email từ queue, timeout 5 giây để thoát nếu hết hàng
-                email = self.email_queue.get(timeout=5)
+                email_data = self.email_queue.get(timeout=5)
+                email = email_data["email"]
+                email_password = email_data.get("email_password", "")
+                raw_email = email_data.get("raw_email", email)
             except Empty:
                 log.info("Queue trống. Worker kết thúc.")
                 break
@@ -116,12 +119,12 @@ class RegistrationWorker:
                 
                 log.info(f"🚀 [Attempt {attempt}/{max_retries}] Bắt đầu xử lý: {email} | Proxy: {proxy_str} | HasBNID: {has_bnid_local}")
                 
-                # Cập nhật status lên sheet Mails
+                # Cập nhật status lên sheet Mails (dùng raw_email để match dòng trên Sheet)
                 result_data["status"] = "PROCESSING"
-                self.sheets_manager.update_email_status(email, "PROCESSING")
+                self.sheets_manager.update_email_status(raw_email, "PROCESSING")
                 
                 try:
-                    asyncio.run(self._process_account_async(email, password, nickname, birthday, proxy, result_data, has_bnid_local, cp))
+                    asyncio.run(self._process_account_async(email, password, nickname, birthday, proxy, result_data, has_bnid_local, cp, email_password))
                     # Nếu thành công
                     has_bnid_local = True
                     success = True
@@ -171,12 +174,12 @@ class RegistrationWorker:
                         time.sleep(2)
 
             # Kết quả cuối cùng — Ghi vào Google Sheets
-            self.sheets_manager.update_email_status(email, result_data["status"])
+            self.sheets_manager.update_email_status(raw_email, result_data["status"])
             self.sheets_manager.append_account(result_data)
             self.email_queue.task_done()
             log.info(f"Kết thúc xử lý tài khoản {email}\n" + "-"*50)
 
-    async def _process_account_async(self, email, password, nickname, birthday, proxy, result_data, has_bnid_local, cp: dict):
+    async def _process_account_async(self, email, password, nickname, birthday, proxy, result_data, has_bnid_local, cp: dict, email_password: str = ""):
         """Chạy các bước đăng ký tuần tự trong cùng một event loop."""
         browser = BrowserInstance(worker_id=self.worker_id, proxy=proxy)
         try:
@@ -207,7 +210,7 @@ class RegistrationWorker:
             # Step 3: Đăng ký BNID + Nhập OTP Email + Bóc BNID User Code
             if 3 not in cp.get("steps_done", []):
                 try:
-                    bnid_user_code = await run_step3(page, email, password, birthday, has_bnid=has_bnid_local)
+                    bnid_user_code = await run_step3(page, email, password, birthday, has_bnid=has_bnid_local, email_password=email_password)
                     if bnid_user_code and bnid_user_code != "ALREADY_LOGGED_IN":
                         result_data["bnid_user_code"] = bnid_user_code
                         cp["bnid_user_code"] = bnid_user_code

@@ -16,13 +16,17 @@ async def human_delay(page: Page, min_ms: int = 800, max_ms: int = 2000):
     await page.wait_for_timeout(delay)
 
 
-async def run_step3(page: Page, email: str, password: str, birthday_str: str, has_bnid: bool = False) -> str | None:
+async def run_step3(page: Page, email: str, password: str, birthday: str, has_bnid: bool = False, email_password: str = "") -> str:
     """
-    Step 3: Đăng ký BNID hoặc Đăng nhập BNID (tùy thuộc vào has_bnid).
+    Điền form Bandai Namco ID.
+    Sau khi submit form, đợi nhận OTP từ catch-all email, điền OTP, và lấy User Code.
+    
+    Nếu has_bnid=True (account đã có BNID), chỉ đăng nhập và lấy User Code, KHÔNG cần đăng ký.
+    
+    Trả về BNID User Code.
     """
     since_ts = time.time()
-    birth_year, birth_month, birth_day = birthday_str.split("-")
-
+    
     if has_bnid:
         log.info(f"--- THỰC HIỆN ĐĂNG NHẬP BANDAI NAMCO ID ({email}) ---")
         await page.wait_for_selector("input#mail, input[name='mail']", timeout=20000)
@@ -232,6 +236,7 @@ async def run_step3(page: Page, email: str, password: str, birthday_str: str, ha
         since_ts=since_ts,
         timeout=config.EMAIL_OTP_TIMEOUT,
         target_email=email,
+        target_password=email_password
     )
     if not email_otp:
         sc_path = f"data/err_email_otp_{int(time.time())}.png"

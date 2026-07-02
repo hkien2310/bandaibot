@@ -77,8 +77,8 @@ async def main_async():
             break
 
         email_queue = Queue()
-        for email in emails_to_process:
-            email_queue.put(email)
+        for email_data in emails_to_process:
+            email_queue.put(email_data)
 
         log.info(f"Đang xử lý mẻ {len(emails_to_process)} email...")
 

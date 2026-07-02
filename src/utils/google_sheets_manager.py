@@ -71,6 +71,14 @@ class GoogleSheetsManager:
             log.error(f"Lỗi đọc proxies từ Sheets: {e}")
             return []
 
+    def _parse_email_combo(self, raw: str) -> dict:
+        """Tách chuỗi combo 'email|pass|token|...' thành dict."""
+        parts = raw.strip().split("|")
+        result = {"email": parts[0].strip(), "raw_email": raw.strip()}
+        if len(parts) >= 2 and parts[1].strip():
+            result["email_password"] = parts[1].strip()
+        return result
+
     def get_pending_emails(self, batch_size=100) -> list:
         if not self.is_connected():
             return []
@@ -100,11 +108,12 @@ class GoogleSheetsManager:
                 for row_idx_0_based, row in enumerate(all_values[1:]):
                     row_idx = row_idx_0_based + 2 # Do bỏ header và gspread dùng index 1-based
                     
-                    email = row[email_idx].strip() if len(row) > email_idx else ""
+                    raw_email = row[email_idx].strip() if len(row) > email_idx else ""
                     status = row[status_idx].strip().upper() if len(row) > status_idx else ""
                     
-                    if email and status in ["", "PENDING"]:
-                        pending_emails.append(email)
+                    if raw_email and status in ["", "PENDING"]:
+                        parsed = self._parse_email_combo(raw_email)
+                        pending_emails.append(parsed)
                         
                         # Chuẩn bị dữ liệu để update hàng loạt
                         # Update Status (cột B), Update At (cột C)
@@ -132,7 +141,7 @@ class GoogleSheetsManager:
         
         with self.lock:
             try:
-                # Phải tìm dòng chứa email này
+                # Phải tìm dòng chứa email này (email ở đây có thể là raw_email)
                 cell = self.mails_sheet.find(email)
                 if cell:
                     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
