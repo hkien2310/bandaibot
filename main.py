@@ -31,6 +31,8 @@ async def run_worker_async(worker_id, email_queue, proxy_pool, sheets_manager):
 async def main_async():
     parser = argparse.ArgumentParser(description="Namco Parks Auto Registration Bot")
     parser.add_argument("--workers", type=int, default=None, help="Số luồng chạy song song")
+    parser.add_argument("--test", action="store_true", help="Chạy chế độ test: chỉ lấy 1 email và thoát")
+    parser.add_argument("--limit", type=int, default=None, help="Giới hạn số lượng account tối đa sẽ chạy trong lần này")
     args = parser.parse_args()
 
     # --- KIỂM TRA THỜI HẠN SỬ DỤNG (TIMEBOMB) ---
@@ -52,8 +54,21 @@ async def main_async():
     log.info("="*50)
 
     # 1. Cấu hình số luồng
-    worker_count = args.workers if args.workers is not None else config.WORKER_COUNT
+    worker_count = 1 if args.test else (args.workers if args.workers is not None else config.WORKER_COUNT)
+    
+    # Xác định batch_size
+    if args.test:
+        batch_size = 1
+    elif args.limit:
+        batch_size = args.limit
+    else:
+        batch_size = 50
+        
     log.info(f"Số luồng (workers): {worker_count}")
+    if args.test:
+        log.info("🛠 CHẾ ĐỘ TEST KÍCH HOẠT: Chỉ bốc 1 email rồi dừng.")
+    elif args.limit:
+        log.info(f"🚧 CHẾ ĐỘ GIỚI HẠN KÍCH HOẠT: Chỉ chạy {args.limit} email.")
 
     # 2. Khởi tạo GoogleSheetsManager
     sheets_manager = GoogleSheetsManager()
@@ -67,10 +82,17 @@ async def main_async():
 
     from queue import Queue
 
-    # 4. Vòng lặp chính: Đọc email PENDING từ Sheets và chạy
+    # 4. Kiểm tra số dư SMS trước khi chạy mass
+    from src.core.sms_service import check_balance
+    balance = check_balance()
+    if balance >= 0 and balance < 25:
+        log.error(f"❌ Tài khoản SMS chỉ còn {balance} điểm/yên, không đủ để thuê số (giá ~25/số). Vui lòng nạp thêm tiền!")
+        sys.exit(1)
+
+    # 5. Vòng lặp chính: Đọc email PENDING từ Sheets và chạy
     while True:
-        # Lấy từng mẻ 50 email để chạy (giảm thiểu xung đột nếu nhiều máy cùng chạy)
-        emails_to_process = sheets_manager.get_pending_emails(batch_size=50)
+        # Lấy từng mẻ email để chạy
+        emails_to_process = sheets_manager.get_pending_emails(batch_size=batch_size)
         
         if not emails_to_process:
             log.info("✅ Không còn tài khoản nào có trạng thái PENDING/Trống trên Sheets. Hoàn tất!")
@@ -85,15 +107,17 @@ async def main_async():
         # Khởi chạy các worker không đồng bộ song song
         tasks = []
         for i in range(1, worker_count + 1):
-            # Truyền sheets_manager vào worker thay vì csv_writer
             tasks.append(run_worker_async(i, email_queue, proxy_pool, sheets_manager))
-            # Delay nhỏ giữa các worker để tránh conflict khởi động browser
             await asyncio.sleep(2)
 
         try:
             await asyncio.gather(*tasks)
         except KeyboardInterrupt:
             log.warning("Nhận lệnh ngắt bàn phím (Ctrl+C). Đang dừng chương trình...")
+            break
+            
+        if args.test or args.limit:
+            log.info("🛠 Đã hoàn thành mẻ giới hạn. Dừng chương trình.")
             break
             
         log.info("🔄 Hoàn thành mẻ hiện tại. Kiểm tra mẻ tiếp theo...")
@@ -106,7 +130,8 @@ async def main_async():
 def main():
     # Buộc stdout flush liên tục
     import os
-    sys.stdout.reconfigure(line_buffering=True)
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(line_buffering=True)
     asyncio.run(main_async())
 
 if __name__ == "__main__":

@@ -42,6 +42,9 @@ class GoogleSheetsManager:
             self.accounts_sheet = self._get_or_create_worksheet("Accounts", self.accounts_columns)
             
             log.info("✅ Kết nối Google Sheets thành công!")
+            
+            # Khôi phục các email đang PROCESSING (do tiến trình cũ bị crash/ngắt)
+            self.reset_processing_emails()
         except Exception as e:
             log.error(f"❌ Lỗi kết nối Google Sheets: {e}")
             self.client = None
@@ -57,6 +60,41 @@ class GoogleSheetsManager:
 
     def is_connected(self):
         return self.client is not None
+        
+    def reset_processing_emails(self):
+        if not self.is_connected():
+            return
+            
+        try:
+            all_values = self.mails_sheet.get_all_values()
+            if len(all_values) <= 1:
+                return
+            
+            headers = all_values[0]
+            try:
+                status_idx = headers.index("Status")
+            except ValueError:
+                return
+            
+            updates = []
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            for row_idx_0_based, row in enumerate(all_values[1:]):
+                row_idx = row_idx_0_based + 2
+                status = row[status_idx].strip().upper() if len(row) > status_idx else ""
+                
+                if status == "PROCESSING":
+                    # Cột B là Status, C là Updated At
+                    updates.append({
+                        'range': f'B{row_idx}:C{row_idx}',
+                        'values': [['PENDING', now_str]]
+                    })
+            
+            if updates:
+                self.mails_sheet.batch_update(updates)
+                log.info(f"🔄 Đã khôi phục {len(updates)} emails từ PROCESSING về PENDING do bot bị tắt đột ngột trước đó.")
+        except Exception as e:
+            log.error(f"Lỗi reset PROCESSING emails: {e}")
 
     def get_active_proxies(self) -> list:
         if not self.is_connected():
@@ -111,7 +149,7 @@ class GoogleSheetsManager:
                     raw_email = row[email_idx].strip() if len(row) > email_idx else ""
                     status = row[status_idx].strip().upper() if len(row) > status_idx else ""
                     
-                    if raw_email and status in ["", "PENDING"]:
+                    if raw_email and status in ["", "PENDING", "FAIL", "FAILED", "ERROR"]:
                         parsed = self._parse_email_combo(raw_email)
                         pending_emails.append(parsed)
                         
@@ -146,10 +184,11 @@ class GoogleSheetsManager:
                 if cell:
                     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     self.mails_sheet.update(f"B{cell.row}:C{cell.row}", [[new_status, now_str]])
-            except gspread.exceptions.CellNotFound:
-                log.warning(f"Không tìm thấy email {email} trong sheet Mails để cập nhật status")
             except Exception as e:
-                log.error(f"Lỗi khi update status cho email {email}: {e}")
+                if "CellNotFound" in str(type(e)):
+                    log.warning(f"Không tìm thấy email {email} trong sheet Mails để cập nhật status")
+                else:
+                    log.error(f"Lỗi khi update status cho email {email}: {e}")
 
     def append_account(self, data: dict):
         if not self.is_connected():
@@ -182,8 +221,23 @@ class GoogleSheetsManager:
             
         with self.lock:
             try:
-                self.accounts_sheet.append_row(row)
-                log.info(f"Đã ghi kết quả acc {data.get('email')} lên Google Sheets")
+                email = data.get('email', '')
+                try:
+                    cell = self.accounts_sheet.find(email)
+                    if cell:
+                        start_col = "A"
+                        end_col = chr(ord("A") + len(self.accounts_columns) - 1)
+                        cell_range = f"{start_col}{cell.row}:{end_col}{cell.row}"
+                        self.accounts_sheet.update(cell_range, [row])
+                        log.info(f"Đã CẬP NHẬT kết quả acc {email} lên Google Sheets (Dòng {cell.row})")
+                    else:
+                        raise Exception("CellNotFound_Custom")
+                except Exception as e:
+                    if "CellNotFound" in str(type(e)) or "CellNotFound_Custom" in str(e):
+                        self.accounts_sheet.append_row(row)
+                        log.info(f"Đã THÊM MỚI kết quả acc {email} lên Google Sheets")
+                    else:
+                        raise e
             except Exception as e:
                 log.error(f"Lỗi khi ghi acc {data.get('email')} lên Sheets: {e}")
                 # Backup vào file local nếu lỗi

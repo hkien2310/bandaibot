@@ -85,14 +85,21 @@ class RegistrationWorker:
                 proxy, proxy_idx = None, -1
                 proxy_str = "Direct"
                 if config.USE_PROXY:
-                    while True:
+                    proxy_attempts = 0
+                    max_proxy_attempts = 3
+                    
+                    while proxy_attempts < max_proxy_attempts:
+                        proxy_attempts += 1
                         proxy, proxy_idx = self.proxy_pool.get_next_proxy()
                         proxy_str = proxy["raw"] if proxy else "Direct"
                         
                         if not proxy:
-                            break  # Đang dùng mode Direct hoặc hết proxy
+                            log.error("❌ KHO PROXY ĐÃ CẠN KIỆT (CHẾT CHÙM). TẠM DỪNG TOÀN BỘ!")
+                            with self.email_queue.mutex:
+                                self.email_queue.queue.clear()
+                            break  # Hết proxy
                             
-                        log.info(f"🔄 Đang kiểm tra proxy: {proxy_str}...")
+                        log.info(f"🔄 Đang kiểm tra proxy ({proxy_attempts}/{max_proxy_attempts}): {proxy_str}...")
                         requests_proxy = proxy_str
                         # Chuyển đổi format "http://host:port:user:pass" sang "http://user:pass@host:port" cho requests
                         if proxy_str:
@@ -112,6 +119,7 @@ class RegistrationWorker:
                         except Exception as e:
                             log.warning(f"❌ Proxy chết ({type(e).__name__}), đổi proxy khác...")
                             self.proxy_pool.mark_failed(proxy_idx)
+                            proxy = None  # Đặt lại None để báo hiệu chưa có proxy sống
                 else:
                     log.info("⚠️ Chạy KHÔNG DÙNG PROXY theo cấu hình (USE_PROXY=false)")
                 
@@ -124,6 +132,12 @@ class RegistrationWorker:
                 self.sheets_manager.update_email_status(raw_email, "PROCESSING")
                 
                 try:
+                    if config.USE_PROXY and not proxy:
+                        if len(self.proxy_pool.proxies) == 0:
+                            raise Exception("KHO_PROXY_CAN_KIET")
+                        else:
+                            raise Exception("Không tìm được proxy sống sau 3 lần thử.")
+                        
                     asyncio.run(self._process_account_async(email, password, nickname, birthday, proxy, result_data, has_bnid_local, cp, email_password))
                     # Nếu thành công
                     has_bnid_local = True
@@ -135,6 +149,13 @@ class RegistrationWorker:
                     error_msg = str(e)
                     log.warning(f"⚠️ [Attempt {attempt} Thất bại] Lỗi khi xử lý {email}: {error_msg}")
                     
+                    # ─── Lỗi cạn kiệt proxy ───
+                    if "KHO_PROXY_CAN_KIET" in error_msg:
+                        log.warning("Hoàn trả account về PENDING do proxy cạn kiệt trước khi chạy.")
+                        result_data["status"] = "PENDING"
+                        result_data["error_details"] = "Proxy pool cạn kiệt"
+                        break
+
                     # ─── Phân loại lỗi: KHÔNG RETRY vs CÓ THỂ RETRY ───
                     NO_RETRY_KEYWORDS = [
                         "EMAIL_ALREADY_IN_USE",          # Email đã đăng ký rồi
@@ -145,8 +166,12 @@ class RegistrationWorker:
                     
                     if is_permanent:
                         log.error(f"🚫 Lỗi KHÔNG THỂ RETRY: {error_msg[:200]}")
-                        result_data["status"] = "FAILED"
+                        if "EMAIL_ALREADY_IN_USE" in error_msg or "Email đã được sử dụng" in error_msg:
+                            result_data["status"] = "ALREADY_REGISTERED"
+                        else:
+                            result_data["status"] = "ABORTED"
                         result_data["error_details"] = error_msg[:200]
+                        clear_checkpoint(email) # Xóa checkpoint dọn rác ổ cứng vì không bao giờ chạy lại
                         break  # Thoát vòng retry ngay
                     
                     # ─── Lỗi CÓ THỂ RETRY ───
@@ -242,8 +267,6 @@ class RegistrationWorker:
                         log.info(f"🎉 Tài khoản {email} đã được liên kết Namco Parks và xác thực SĐT trước đó.")
                         result_data["status"] = "SUCCESS"
                         result_data["error_details"] = "Đã liên kết Namco Parks từ trước"
-                        self.sheets_manager.update_email_status(email, "SUCCESS")
-                        self.sheets_manager.append_account(result_data)
                         clear_checkpoint(email)
                         return  # Kết thúc sớm
 

@@ -48,3 +48,7 @@ MANIFEST
 # OS
 .DS_Store
 Thumbs.db
+
+# Build artifacts
+Release/
+*.spec

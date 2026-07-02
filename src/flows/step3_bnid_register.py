@@ -27,6 +27,15 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
     """
     since_ts = time.time()
     
+    mail_page = None
+    is_outlook = email.lower().endswith(("@hotmail.com", "@outlook.com", "@live.com"))
+    if is_outlook and email_password:
+        from src.core.email_reader_web import prepare_outlook_tab
+        mail_page = await prepare_outlook_tab(page.context, email, email_password)
+        if mail_page:
+            await page.bring_to_front()
+    
+    
     if has_bnid:
         log.info(f"--- THỰC HIỆN ĐĂNG NHẬP BANDAI NAMCO ID ({email}) ---")
         await page.wait_for_selector("input#mail, input[name='mail']", timeout=20000)
@@ -73,6 +82,18 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
         return "ALREADY_LOGGED_IN"
 
     # ─── ĐĂNG KÝ MỚI (has_bnid = False) ───
+    # ─── ĐĂNG KÝ MỚI (has_bnid = False) ───
+    if "-" in birthday:
+        parts = birthday.split("-")
+        birth_year = parts[0]
+        birth_month = parts[1]
+        birth_day = parts[2]
+    else:
+        birth_year = birthday[:4]
+        birth_month = birthday[4:6]
+        birth_day = birthday[6:]
+    birthday_str = birthday
+    
     log.info(f"1. Điền Email ({email}) & Mật khẩu...")
     await page.wait_for_selector("input#mail, input[name='mail']", timeout=20000)
     await human_delay(page, 800, 1500)
@@ -230,18 +251,33 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
         pass
     log.info(f"   → URL hiện tại: {page.url}")
 
-    # ─── BƯỚC 3.3: Nhận OTP email và điền ───
-    log.info("5. Đang poll OTP email từ Gmail IMAP (quét cả Inbox & Spam)...")
-    email_otp = get_bandai_namco_otp(
+    # ─── BƯỚC 5. Đọc OTP từ Email (Chuyển sang dùng router Web/IMAP bất đồng bộ)
+    # Đợi Bandai Namco xử lý và load xong trang nhập OTP trước khi lật sang tab Mail
+    log.info("   Đang chờ Bandai Namco xử lý form và hiện ô nhập OTP...")
+    try:
+        await page.wait_for_selector("input#code, input[name='code']", timeout=10000)
+    except:
+        pass
+    await page.wait_for_timeout(3000) # Đợi thêm 3s cho chắc chắn Bandai đã gửi mail đi
+
+    log.info("5. Đang poll OTP email (Web/IMAP)...")
+    email_otp = await get_bandai_namco_otp(
+        context=page.context,
+        target_email=email,
+        target_password=email_password,
         since_ts=since_ts,
         timeout=config.EMAIL_OTP_TIMEOUT,
-        target_email=email,
-        target_password=email_password
+        mail_page=mail_page
     )
+
     if not email_otp:
         sc_path = f"data/err_email_otp_{int(time.time())}.png"
         await page.screenshot(path=sc_path)
         raise TimeoutError(f"Không nhận được OTP email sau {config.EMAIL_OTP_TIMEOUT}s! Screenshot: {sc_path}")
+
+    # Đưa focus quay lại tab Bandai Namco để điền OTP cho người dùng thấy
+    await page.bring_to_front()
+    await page.wait_for_timeout(1000)
 
     log.info(f"   → OTP email: {email_otp}. Điền vào form...")
     await human_delay(page, 800, 1500)

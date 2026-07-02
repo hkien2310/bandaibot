@@ -13,6 +13,10 @@ class ProxyPool:
         
         # Lưu các proxy index đã hoàn thành đăng ký thành công số accounts tối đa
         self.retired_indices = set()
+        # Đánh dấu các proxy đã chết vĩnh viễn
+        self.dead_indices = set()
+        # Đếm số lần lỗi liên tiếp của toàn hệ thống proxy
+        self.consecutive_failures = 0
         # Đếm số accounts thành công cho mỗi proxy index
         self.success_counts = {} 
         
@@ -76,30 +80,38 @@ class ProxyPool:
             return None, None
             
         with self.lock:
+            if self.consecutive_failures >= 15:
+                log.error("❌ Phát hiện 15 proxy liên tiếp chết! Khả năng cao toàn bộ kho proxy hỏng hoặc mất mạng. Tạm dừng cấp proxy!")
+                return None, None
+
             start_index = self.index
             while True:
                 curr_idx = self.index
                 # Luôn dịch index sang proxy tiếp theo cho các lần gọi sau (đảm bảo đổi proxy liên tục)
                 self.index = (self.index + 1) % len(self.proxies)
                 
-                if curr_idx not in self.retired_indices:
+                if curr_idx not in self.retired_indices and curr_idx not in self.dead_indices:
                     proxy = dict(self.proxies[curr_idx])
                     log.info(f"   -> Chọn proxy index={curr_idx} | {proxy.get('server')}")
                     return proxy, curr_idx
                 
-                # Nếu đã duyệt hết 1 vòng mà toàn bộ đã bị retired (không thể với pool 5000), reset
+                # Nếu đã duyệt hết 1 vòng mà không tìm được con nào sống
                 if self.index == start_index:
-                    log.warning(f"Tất cả proxy trong file đều đã đăng ký thành công đủ {config.MAX_ACCOUNTS_PER_PROXY} accounts! Reset pool...")
+                    if len(self.dead_indices) == len(self.proxies):
+                        log.error("❌ TẤT CẢ proxy trong kho đều đã chết!")
+                        return None, None
+                        
+                    log.warning(f"Tất cả proxy sống đều đã đăng ký tối đa {config.MAX_ACCOUNTS_PER_PROXY} acc! Reset giới hạn (không reset proxy chết)...")
                     self.retired_indices.clear()
                     self.success_counts.clear()
-                    proxy = dict(self.proxies[curr_idx])
-                    return proxy, curr_idx
+                    # Vòng lặp sẽ tiếp tục tìm proxy sống đầu tiên vừa được un-retire
 
     def mark_success(self, proxy_index: int):
         """Ghi nhận đăng ký thành công cho proxy index."""
         if proxy_index is None:
             return
         with self.lock:
+            self.consecutive_failures = 0  # Reset counter khi có 1 proxy chạy thành công
             count = self.success_counts.get(proxy_index, 0) + 1
             self.success_counts[proxy_index] = count
             log.info(f"   [Proxy Pool] Proxy index {proxy_index} đã hoàn thành đăng ký thành công {count}/{config.MAX_ACCOUNTS_PER_PROXY} accounts.")
@@ -115,5 +127,6 @@ class ProxyPool:
         if proxy_index is None:
             return
         with self.lock:
-            self.retired_indices.add(proxy_index)
-            log.warning(f"   [Proxy Pool] Đã loại bỏ vĩnh viễn proxy index {proxy_index} vì bị lỗi kết nối.")
+            self.dead_indices.add(proxy_index)
+            self.consecutive_failures += 1
+            log.warning(f"   [Proxy Pool] Đã loại bỏ vĩnh viễn proxy index {proxy_index} vì bị lỗi kết nối. (Chuỗi chết liên tiếp: {self.consecutive_failures})")

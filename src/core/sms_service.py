@@ -83,7 +83,7 @@ def check_balance() -> int:
         data = resp.json()
         if data.get("status") == "success":
             balance = data["balance"]
-            log.info(f"💰 Số dư SMS: {balance:,} VND")
+            log.info(f"💰 Số dư SMS: {balance:,} điểm/yên")
             return balance
     except Exception as e:
         log.warning(f"Không lấy được số dư: {e}")
