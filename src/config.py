@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -7,11 +8,25 @@ import sys
 
 # Xác định ROOT_DIR (thư mục gốc)
 if getattr(sys, 'frozen', False):
-    # Nếu đang chạy bằng file .exe đã đóng gói bằng PyInstaller
     ROOT_DIR = Path(sys.executable).parent
+    BUNDLE_DIR = Path(sys._MEIPASS)
 else:
-    # Nếu đang chạy code Python thông thường
     ROOT_DIR = Path(__file__).parent.parent
+    BUNDLE_DIR = ROOT_DIR
+
+def _extract_if_missing(rel_path: str):
+    """Extract file từ bundle ra cạnh exe nếu chưa có."""
+    dest = ROOT_DIR / rel_path
+    src = BUNDLE_DIR / rel_path
+    if not dest.exists() and src.exists():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(src), str(dest))
+
+# Lần đầu chạy: tự tạo config files cạnh exe
+if getattr(sys, 'frozen', False):
+    _extract_if_missing("config.json")
+    _extract_if_missing(".env")
+    _extract_if_missing("data/credentials.json")
 
 # Load .env
 ENV_FILE = ROOT_DIR / ".env"
