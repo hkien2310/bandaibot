@@ -30,6 +30,12 @@ fi
 cp config.json Release/
 cp .env Release/
 
+# Copy thư mục data/ (chứa credentials.json) nếu có
+if [ -d "data" ]; then
+    mkdir -p Release/data
+    cp data/credentials.json Release/data/ 2>/dev/null || true
+fi
+
 echo "============================================================"
 echo "🎉 BUILD THÀNH CÔNG!"
 echo "Sản phẩm nằm trong thư mục: /Release/"
