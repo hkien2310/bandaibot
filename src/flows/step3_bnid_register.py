@@ -35,8 +35,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
         if mail_page:
             await page.bring_to_front()
     
-    
-    if has_bnid:
+    if False: # has_bnid: Bỏ qua luồng đăng nhập theo yêu cầu của sếp
         log.info(f"--- THỰC HIỆN ĐĂNG NHẬP BANDAI NAMCO ID ({email}) ---")
         await page.wait_for_selector("input#mail, input[name='mail']", timeout=20000)
         await human_delay(page, 600, 1200)
