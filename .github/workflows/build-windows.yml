@@ -51,6 +51,11 @@ jobs:
           --collect-all playwright `
           gui.py
 
+    - name: Copy config and data to dist
+      run: |
+        Copy-Item -Path "config.json" -Destination "dist/NamcoBot/config.json"
+        Copy-Item -Path "data" -Destination "dist/NamcoBot/" -Recurse
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
