@@ -28,21 +28,21 @@ jobs:
 
     - name: Build EXE with PyInstaller
       run: |
-        pyinstaller --noconfirm --onedir --windowed ^
-          --name "NamcoBot" ^
-          --add-data "src;src" ^
-          --add-data "config.json;." ^
-          --add-data "data/credentials.json;data" ^
-          --hidden-import=playwright ^
-          --hidden-import=playwright.async_api ^
-          --hidden-import=gspread ^
-          --hidden-import=dotenv ^
-          --hidden-import=pycparser ^
-          --hidden-import=cffi ^
-          --hidden-import=cryptography ^
-          --hidden-import=google.auth ^
-          --hidden-import=google.oauth2.service_account ^
-          --collect-all playwright ^
+        pyinstaller --noconfirm --onedir --windowed `
+          --name "NamcoBot" `
+          --add-data "src;src" `
+          --add-data "config.json;." `
+          --add-data "data/credentials.json;data" `
+          --hidden-import=playwright `
+          --hidden-import=playwright.async_api `
+          --hidden-import=gspread `
+          --hidden-import=dotenv `
+          --hidden-import=pycparser `
+          --hidden-import=cffi `
+          --hidden-import=cryptography `
+          --hidden-import=google.auth `
+          --hidden-import=google.oauth2.service_account `
+          --collect-all playwright `
           gui.py
 
     - name: Upload Artifact
