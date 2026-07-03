@@ -42,7 +42,7 @@ if errorlevel 1 (
 echo.
 echo [4/5] Tao file config template neu chua co...
 
-::  Tao config.json tu file example neu chua co
+:: Tao config.json tu file example neu chua co
 if not exist config.json (
     if exist config.example.json (
         echo Tao config.json tu config.example.json...
@@ -97,7 +97,7 @@ echo Tao thu muc Release...
 if exist Release rmdir /s /q Release
 mkdir Release
 
-:: Copy toan bo noi dung vao thẳng Release
+:: Copy toan bo noi dung vao thang Release
 xcopy /E /I /Y dist\NamcoBot Release\
 
 :: Copy file cau hinh va credentials ra ngoai de de dang chinh sua
