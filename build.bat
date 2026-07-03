@@ -42,24 +42,17 @@ if errorlevel 1 (
 echo.
 echo [4/5] Tao file config template neu chua co...
 
-:: Tao config.json template neu chua co
+::  Tao config.json tu file example neu chua co
 if not exist config.json (
-    echo Tao config.json template...
-    (
-        echo {
-        echo     "headless": true,
-        echo     "worker_count": 1,
-        echo     "google_sheet_id": "",
-        echo     "email_otp_timeout": 120,
-        echo     "sms_otp_timeout": 300,
-        echo     "default_password": "Namco2025!",
-        echo     "default_gender": "^回答しない",
-        echo     "default_prefecture": "^東京都",
-        echo     "keep_browser_open": false,
-        echo     "browser_path": ""
-        echo }
-    ) > config.json
-    echo config.json da duoc tao!
+    if exist config.example.json (
+        echo Tao config.json tu config.example.json...
+        copy /Y config.example.json config.json
+        echo config.json da duoc tao! Nho dien Google Sheet ID vao config.json truoc khi chay bot.
+    ) else (
+        echo [LOI] Khong tim thay config.json va config.example.json!
+        pause
+        exit /b 1
+    )
 )
 
 :: Tao .env template neu chua co

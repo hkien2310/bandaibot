@@ -1,0 +1,13 @@
+{
+  "browser_path": "",
+  "headless": true,
+  "worker_count": 1,
+  "email_otp_timeout": 200,
+  "sms_otp_timeout": 300,
+  "default_password": "Namco2025!",
+  "default_gender": "回答しない",
+  "default_prefecture": "東京都",
+  "keep_browser_open": false,
+  "google_sheet_id": "PASTE_YOUR_GOOGLE_SHEET_ID_HERE",
+  "google_sheets_webhook_url": ""
+}
