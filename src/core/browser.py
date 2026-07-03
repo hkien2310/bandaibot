@@ -81,6 +81,21 @@ class BrowserInstance:
         await self.context.route("**/*", block_heavy_resources)
         log.info("✅ Đã bật chế độ tiết kiệm băng thông (chặn ảnh/video/font) cho toàn bộ trình duyệt")
 
+        # THEO DÕI DATA SỬ DỤNG
+        self.total_bytes = 0
+        async def on_request_finished(request):
+            try:
+                sizes = await request.sizes()
+                if sizes:
+                    self.total_bytes += sizes.get("requestBodySize", 0)
+                    self.total_bytes += sizes.get("requestHeadersSize", 0)
+                    self.total_bytes += sizes.get("responseBodySize", 0)
+                    self.total_bytes += sizes.get("responseHeadersSize", 0)
+            except Exception:
+                pass
+                
+        self.context.on("requestfinished", on_request_finished)
+
         # Thiết lập Virtual WebAuthn Authenticator để chặn popup Bluetooth/USB Passkey của Chrome
         try:
             cdp = await self.context.new_cdp_session(page)
@@ -101,6 +116,9 @@ class BrowserInstance:
 
         return page
 
+    def get_data_usage_mb(self) -> float:
+        """Trả về dung lượng data đã sử dụng tính bằng MB."""
+        return getattr(self, 'total_bytes', 0) / (1024 * 1024)
 
     async def close(self):
         """Đóng trình duyệt và xóa sạch toàn bộ data (profile dir)."""

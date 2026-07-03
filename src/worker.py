@@ -350,4 +350,6 @@ class RegistrationWorker:
                 await asyncio.to_thread(input, "")
             # Đóng browser và xóa data
             if browser:
+                usage_mb = browser.get_data_usage_mb()
+                log.info(f"📊 Tổng dữ liệu đã tiêu thụ (tải về + tải lên): {usage_mb:.2f} MB")
                 await browser.close()
