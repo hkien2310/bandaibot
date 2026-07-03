@@ -1,9 +1,6 @@
-import os
 import json
 import shutil
 from pathlib import Path
-from dotenv import load_dotenv
-
 import sys
 
 # Xác định ROOT_DIR (thư mục gốc)
@@ -25,58 +22,54 @@ def _extract_if_missing(rel_path: str):
 # Lần đầu chạy: tự tạo config files cạnh exe
 if getattr(sys, 'frozen', False):
     _extract_if_missing("config.json")
-    _extract_if_missing(".env")
     _extract_if_missing("data/credentials.json")
 
-# Load .env
-ENV_FILE = ROOT_DIR / ".env"
-load_dotenv(dotenv_path=ENV_FILE)
-
-# Load config.json
+# Load config.json (nguồn duy nhất)
 CONFIG_FILE = ROOT_DIR / "config.json"
 if CONFIG_FILE.exists():
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        _json_config = json.load(f)
+        _cfg = json.load(f)
 else:
-    _json_config = {}
+    _cfg = {}
+
+def _get(key, default=""):
+    return _cfg.get(key, default)
 
 # Paths
 DATA_DIR = ROOT_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
+# Bot settings
+BROWSER_PATH        = _get("browser_path", "")
+HEADLESS            = _get("headless", False)
+GOOGLE_SHEET_ID     = _get("google_sheet_id", "")
+WORKER_COUNT        = _get("worker_count", 1)
+EMAIL_OTP_TIMEOUT   = _get("email_otp_timeout", 120)
+SMS_OTP_TIMEOUT     = _get("sms_otp_timeout", 300)
+DEFAULT_PASSWORD    = _get("default_password", "Namco2025!")
+DEFAULT_GENDER      = _get("default_gender", "回答しない")
+DEFAULT_PREFECTURE  = _get("default_prefecture", "東京都")
+KEEP_BROWSER_OPEN   = _get("keep_browser_open", False)
+
 # Email config
-EMAIL_MODE = os.getenv("EMAIL_MODE", "alias")
-CATCHALL_INBOX = os.getenv("CATCHALL_INBOX", "")
-CATCHALL_PASSWORD = os.getenv("CATCHALL_PASSWORD", "")
-CATCHALL_DOMAIN = os.getenv("CATCHALL_DOMAIN", "")
-CATCHALL_EMAIL_PREFIX = os.getenv("CATCHALL_EMAIL_PREFIX", "acc")
+EMAIL_MODE          = _get("email_mode", "alias")
+CATCHALL_INBOX      = _get("catchall_inbox", "")
+CATCHALL_PASSWORD   = _get("catchall_password", "")
+CATCHALL_DOMAIN     = _get("catchall_domain", "")
+CATCHALL_EMAIL_PREFIX = _get("catchall_email_prefix", "acc")
 
 # SMS config
-SMS_ENABLED = os.getenv("SMS_ENABLED", "true").lower() == "true"
-SMS_BASE_URL = os.getenv("SMS_BASE_URL", "https://northdinhjpn.online")
-SMS_USERNAME = os.getenv("SMS_USERNAME", "")
-SMS_PASSWORD = os.getenv("SMS_PASSWORD", "")
-SMS_SERVICE_ID = os.getenv("SMS_SERVICE_ID", "1017")
-SMS_COUNTRY = os.getenv("SMS_COUNTRY", "jpn")
-SMS_SERVER = os.getenv("SMS_SERVER", "2")
+SMS_ENABLED         = _get("sms_enabled", True)
+SMS_BASE_URL        = _get("sms_base_url", "https://northdinhjpn.online")
+SMS_USERNAME        = _get("sms_username", "")
+SMS_PASSWORD        = _get("sms_password", "")
+SMS_SERVICE_ID      = str(_get("sms_service_id", "4005"))
+SMS_COUNTRY         = _get("sms_country", "jpn")
+SMS_SERVER          = str(_get("sms_server", "2"))
 
 # Proxy config
-USE_PROXY = os.getenv("USE_PROXY", "true").lower() == "true"
-MAX_ACCOUNTS_PER_PROXY = int(os.getenv("MAX_ACCOUNTS_PER_PROXY", "10"))
-
-# Config from JSON
-BROWSER_PATH = _json_config.get("browser_path", "")
-HEADLESS = _json_config.get("headless", False)
-HAS_BNID = _json_config.get("has_bnid", False)
-GOOGLE_SHEET_ID = _json_config.get("google_sheet_id", "")
-WORKER_COUNT = _json_config.get("worker_count", 1)
-EMAIL_OTP_TIMEOUT = _json_config.get("email_otp_timeout", 120)
-SMS_OTP_TIMEOUT = _json_config.get("sms_otp_timeout", 300)
-DEFAULT_PASSWORD = _json_config.get("default_password", "Namco2025!")
-DEFAULT_GENDER = _json_config.get("default_gender", "回答しない")
-DEFAULT_PREFECTURE = _json_config.get("default_prefecture", "東京都")
-# Giữ browser mở sau khi xong để debug (set false để tự đóng trong production)
-KEEP_BROWSER_OPEN = _json_config.get("keep_browser_open", False)
+USE_PROXY               = _get("use_proxy", True)
+MAX_ACCOUNTS_PER_PROXY  = int(_get("max_accounts_per_proxy", 10))
 
 # Biến cờ hiệu toàn cục để ngắt bot (Stop button)
 STOP_FLAG = False

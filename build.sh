@@ -21,7 +21,6 @@ pyinstaller --noconfirm --onedir --windowed \
     --name "NamcoBot" \
     --add-data "src:src" \
     --add-data "config.json:." \
-    --add-data ".env:." \
     --add-data "data/credentials.json:data" \
     --hidden-import=playwright \
     --hidden-import=playwright.async_api \
@@ -45,7 +44,6 @@ cp -r dist/NamcoBot.app Release/
 
 # Copy file cau hinh ra ngoai (khan cap: truyen cung voi .app)
 cp config.json Release/config.json
-cp .env Release/.env
 mkdir -p Release/data
 cp data/credentials.json Release/data/credentials.json
 
@@ -54,8 +52,7 @@ echo "============================================================"
 echo " BUILD THANH CONG!"
 echo " Thu muc Release/ chua:"
 echo "   - NamcoBot.app  (ung dung chinh, double-click de chay)"
-echo "   - config.json   (cau hinh bot)"
-echo "   - .env          (API keys)"
+echo "   - config.json   (cau hinh bot: Sheet ID, SMS, email, proxy...)"
 echo "   - data/         (Google credentials)"
 echo " Gui khach toan bo thu muc Release/"
 echo "============================================================"

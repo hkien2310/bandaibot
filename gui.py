@@ -3,7 +3,6 @@ from tkinter import ttk, scrolledtext, messagebox, filedialog
 import json
 import threading
 import sys
-import os
 import queue
 import re
 from pathlib import Path
@@ -17,7 +16,6 @@ else:
 sys.path.insert(0, str(ROOT_DIR))
 
 config_path = ROOT_DIR / "config.json"
-env_path = ROOT_DIR / ".env"
 
 def load_json_config():
     if config_path.exists():
@@ -32,30 +30,7 @@ def save_json_config(data):
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def read_env_value(key, default=""):
-    if env_path.exists():
-        with open(env_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith(f"{key}="):
-                    return line.split("=", 1)[1]
-    return default
 
-def write_env_value(key, value):
-    lines = []
-    if env_path.exists():
-        with open(env_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-    found = False
-    for i, line in enumerate(lines):
-        if line.startswith(f"{key}="):
-            lines[i] = f"{key}={value}\n"
-            found = True
-            break
-    if not found:
-        lines.append(f"{key}={value}\n")
-    with open(env_path, "w", encoding="utf-8") as f:
-        f.writelines(lines)
 
 def strip_ansi(text):
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
@@ -82,7 +57,7 @@ class NamcoBotGUI:
         self.limit_var = tk.StringVar(value="")
         self.workers_var = tk.StringVar(value=str(cfg.get("worker_count", 3)))
         self.headless_var = tk.BooleanVar(value=cfg.get("headless", True))
-        self.proxy_var = tk.BooleanVar(value=read_env_value("USE_PROXY", "true").lower() == "true")
+        self.proxy_var = tk.BooleanVar(value=cfg.get("use_proxy", True))
         self.browser_path_var = tk.StringVar(value=cfg.get("browser_path", ""))
 
         self.setup_ui()
@@ -170,7 +145,7 @@ class NamcoBotGUI:
         self.root.after(50, self.update_logs)
 
     def save_settings(self):
-        """Lưu cài đặt vào config.json và .env"""
+        """Lưu toàn bộ cài đặt vào config.json duy nhất"""
         cfg = load_json_config()
         try:
             cfg["worker_count"] = int(self.workers_var.get())
@@ -178,8 +153,8 @@ class NamcoBotGUI:
             cfg["worker_count"] = 3
         cfg["headless"] = self.headless_var.get()
         cfg["browser_path"] = self.browser_path_var.get()
+        cfg["use_proxy"] = self.proxy_var.get()
         save_json_config(cfg)
-        write_env_value("USE_PROXY", "true" if self.proxy_var.get() else "false")
 
     def start_bot(self):
         # Lưu config trước
@@ -188,8 +163,6 @@ class NamcoBotGUI:
         # Import src.config SAU KHI lưu để nó đọc giá trị mới nhất
         import importlib
         import src.config as bot_config
-        from dotenv import load_dotenv
-        load_dotenv(dotenv_path=env_path, override=True)
         importlib.reload(bot_config)
 
         # Reset STOP_FLAG trực tiếp trên module đang chạy

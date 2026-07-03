@@ -1,4 +1,5 @@
-# Environments
+# Environments (không còn dùng .env, config đã gộp vào config.json)
+# .env vẫn giữ ở đây để backward compat nếu ai dùng phiên bản cũ
 .env
 .venv
 env/

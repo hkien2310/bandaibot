@@ -55,27 +55,8 @@ if not exist config.json (
     )
 )
 
-:: Tao .env template neu chua co
-if not exist .env (
-    echo Tao .env template...
-    (
-        echo EMAIL_MODE=alias
-        echo CATCHALL_INBOX=
-        echo CATCHALL_PASSWORD=
-        echo CATCHALL_DOMAIN=
-        echo CATCHALL_EMAIL_PREFIX=acc
-        echo SMS_ENABLED=true
-        echo SMS_BASE_URL=https://northdinhjpn.online
-        echo SMS_USERNAME=
-        echo SMS_PASSWORD=
-        echo SMS_SERVICE_ID=1017
-        echo SMS_COUNTRY=jpn
-        echo SMS_SERVER=2
-        echo USE_PROXY=true
-        echo MAX_ACCOUNTS_PER_PROXY=10
-    ) > .env
-    echo .env da duoc tao!
-)
+:: Tao .env template neu chua co (backward compat - co the xoa sau)
+:: Khong con can thiet, moi config da nam trong config.json
 
 :: Tao thu muc data neu chua co
 if not exist data mkdir data
@@ -122,7 +103,6 @@ xcopy /E /I /Y dist\NamcoBot Release\NamcoBot
 
 :: Copy file cau hinh ra ngoai cung cap voi thu muc NamcoBot
 copy /Y config.json Release\config.json
-copy /Y .env Release\.env
 if exist data\credentials.json (
     mkdir Release\data 2>nul
     copy /Y data\credentials.json Release\data\credentials.json
@@ -141,9 +121,9 @@ echo  BUILD THANH CONG!
 echo  Thu muc Release/ chua toan bo file can thiet.
 echo.
 echo  LUU Y QUAN TRONG:
-echo  - Thay the Release\data\credentials.json bang file that
-echo  - Dien day du thong tin vao Release\.env
-echo  - Dien Google Sheet ID vao Release\config.json
+echo  - Thay the Release\data\credentials.json bang file that tu Google Cloud
+echo  - Dien day du thong tin vao Release\config.json
+echo    (Sheet ID, SMS username/password, email config...)
 echo.
 echo  Gui khach toan bo thu muc Release/
 echo  Khach click dup RUN_BOT.bat la chay duoc.
