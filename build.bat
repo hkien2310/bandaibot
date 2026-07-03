@@ -4,71 +4,36 @@ echo ============================================================
 echo  BAT DAU DONG GOI NAMCO BOT CHO WINDOWS
 echo ============================================================
 
-:: Kiem tra Python
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [LOI] Chua cai Python! Vui long cai Python 3.11+ tu python.org
-    pause
-    exit /b 1
+    echo [LOI] Chua cai Python!
+    pause & exit /b 1
+)
+
+if not exist data\credentials.json (
+    echo [LOI] Khong tim thay data\credentials.json!
+    echo       Dat file credentials.json vao thu muc data\ roi chay lai.
+    pause & exit /b 1
 )
 
 echo.
-echo [1/5] Cai dat dependencies...
+echo [1/3] Cai dat dependencies...
 pip install -r requirements.txt
-if errorlevel 1 (
-    echo [LOI] Cai dat dependencies that bai!
-    pause
-    exit /b 1
-)
+if errorlevel 1 ( echo [LOI] That bai! & pause & exit /b 1 )
 
 echo.
-echo [2/5] Tao file config template neu chua co...
-if not exist config.json (
-    if exist config.example.json (
-        copy /Y config.example.json config.json
-        echo config.json da duoc tao tu template.
-    ) else (
-        echo [LOI] Khong tim thay config.json va config.example.json!
-        pause
-        exit /b 1
-    )
-)
-
-echo.
-echo [3/5] Kiem tra src\secrets.py...
-if exist src\secrets.py (
-    echo src\secrets.py da co san - dung luon!
-) else (
-    echo Chua co src\secrets.py, thu generate tu data\credentials.json...
-    python generate_secrets.py
-    if errorlevel 1 (
-        echo.
-        echo [LOI] Khong tao duoc secrets.py!
-        echo.
-        echo Cach fix don gian nhat:
-        echo   Copy file src\secrets.py vao thu muc src\ roi chay lai build.bat
-        echo.
-        pause
-        exit /b 1
-    )
-)
-
-echo.
-echo [4/5] Cai dat Playwright browser (Chromium)...
+echo [2/3] Cai dat Playwright browser (Chromium)...
 playwright install chromium
-if errorlevel 1 (
-    echo [LOI] Cai dat Playwright browser that bai!
-    pause
-    exit /b 1
-)
+if errorlevel 1 ( echo [LOI] That bai! & pause & exit /b 1 )
 
 echo.
-echo [5/5] Build NamcoBot...
+echo [3/3] Build NamcoBot...
 pip install pyinstaller
 pyinstaller --noconfirm --onedir --windowed ^
     --name "NamcoBot" ^
     --add-data "src;src" ^
     --add-data "config.json;." ^
+    --add-data "data/credentials.json;data" ^
     --hidden-import=playwright ^
     --hidden-import=playwright.async_api ^
     --hidden-import=gspread ^
@@ -80,17 +45,12 @@ pyinstaller --noconfirm --onedir --windowed ^
     --collect-all playwright ^
     gui.py
 
-if errorlevel 1 (
-    echo [LOI] Build that bai! Xem log o tren.
-    pause
-    exit /b 1
-)
+if errorlevel 1 ( echo [LOI] Build that bai! & pause & exit /b 1 )
 
 echo.
 echo Tao thu muc Release...
 if exist Release rmdir /s /q Release
 mkdir Release
-
 xcopy /E /I /Y dist\NamcoBot Release\NamcoBot
 copy /Y config.json Release\config.json
 
@@ -108,7 +68,7 @@ echo    - NamcoBot\    (app chinh)
 echo    - config.json  (SMS/email settings cua khach)
 echo    - RUN_BOT.bat  (click dup de chay)
 echo.
-echo  Sheet ID va Google credentials da BAKED vao binary.
+echo  credentials.json da duoc BUNDLE vao ben trong app.
 echo  Gui khach toan bo thu muc Release/
 echo ============================================================
 pause
