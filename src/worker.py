@@ -351,5 +351,6 @@ class RegistrationWorker:
             # Đóng browser và xóa data
             if browser:
                 usage_mb = browser.get_data_usage_mb()
+                result_data["data_usage_mb"] = round(usage_mb, 2)
                 log.info(f"📊 Tổng dữ liệu đã tiêu thụ (tải về + tải lên): {usage_mb:.2f} MB")
                 await browser.close()

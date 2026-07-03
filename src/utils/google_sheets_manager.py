@@ -37,7 +37,8 @@ class GoogleSheetsManager:
             
             self.accounts_columns = [
                 "Email", "Bandai Password", "Namco Password", "Nickname", 
-                "Phone", "BNID", "Proxy Used", "Status", "Created At", "Error Details"
+                "Phone", "BNID", "Proxy Used", "Status", "Created At", "Error Details",
+                "Data Usage (MB)"
             ]
             self.accounts_sheet = self._get_or_create_worksheet("Accounts", self.accounts_columns)
             
@@ -209,7 +210,8 @@ class GoogleSheetsManager:
                 "Proxy Used": "proxy_used",
                 "Status": "status",
                 "Created At": "created_at",
-                "Error Details": "error_details"
+                "Error Details": "error_details",
+                "Data Usage (MB)": "data_usage_mb"
             }
             key = key_map.get(col, col.lower())
             
