@@ -6,24 +6,29 @@ echo "============================================================"
 echo " BAT DAU DONG GOI NAMCO BOT CHO MACOS"
 echo "============================================================"
 
-# Kiểm tra secrets.py tồn tại
-if [ ! -f "src/secrets.py" ]; then
-    echo "[LOI] Khong tim thay src/secrets.py!"
-    echo "      Chay lenh nay de tao: python3 generate_secrets.py"
-    exit 1
-fi
-
 echo ""
 echo "[1/4] Kich hoat venv & cai dat dependencies..."
 source .venv/bin/activate
 pip install -r requirements.txt
 
 echo ""
-echo "[2/4] Cai dat Playwright browser (Chromium)..."
+echo "[2/4] Tao src/secrets.py tu env vars..."
+python3 generate_secrets.py
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "[LOI] Khong tao duoc secrets.py!"
+    echo "Set env vars 1 lan tren may nay:"
+    echo "  export NAMCO_SHEET_ID='your-sheet-id'"
+    echo "  export NAMCO_CREDS_PATH='/path/to/credentials.json'"
+    exit 1
+fi
+
+echo ""
+echo "[3/4] Cai dat Playwright browser (Chromium)..."
 playwright install chromium
 
 echo ""
-echo "[3/4] Build NamcoBot.app..."
+echo "[4/4] Build NamcoBot.app..."
 pyinstaller --noconfirm --onedir --windowed \
     --name "NamcoBot" \
     --add-data "src:src" \

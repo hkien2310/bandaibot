@@ -12,16 +12,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Kiem tra secrets.py ton tai
-if not exist src\secrets.py (
-    echo [LOI] Khong tim thay src\secrets.py!
-    echo       Chay lenh nay de tao: python generate_secrets.py
-    pause
-    exit /b 1
-)
-
 echo.
-echo [1/4] Cai dat dependencies...
+echo [1/5] Cai dat dependencies...
 pip install -r requirements.txt
 if errorlevel 1 (
     echo [LOI] Cai dat dependencies that bai!
@@ -30,23 +22,11 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/4] Cai dat Playwright browser (Chromium)...
-playwright install chromium
-if errorlevel 1 (
-    echo [LOI] Cai dat Playwright browser that bai!
-    pause
-    exit /b 1
-)
-
-echo.
-echo [3/4] Tao file config template neu chua co...
-
-:: Tao config.json tu file example neu chua co
+echo [2/5] Tao file config template neu chua co...
 if not exist config.json (
     if exist config.example.json (
-        echo Tao config.json tu config.example.json...
         copy /Y config.example.json config.json
-        echo config.json da duoc tao!
+        echo config.json da duoc tao tu template.
     ) else (
         echo [LOI] Khong tim thay config.json va config.example.json!
         pause
@@ -55,7 +35,35 @@ if not exist config.json (
 )
 
 echo.
-echo [4/4] Build NamcoBot...
+echo [3/5] Tao src\secrets.py tu env vars...
+python generate_secrets.py
+if errorlevel 1 (
+    echo.
+    echo [LOI] Khong tao duoc secrets.py!
+    echo.
+    echo Cach fix: Set env vars 1 lan tren may nay:
+    echo   - NAMCO_SHEET_ID   = Google Sheet ID cua ban
+    echo   - NAMCO_CREDS_PATH = Duong dan toi credentials.json
+    echo.
+    echo Vi du (chay trong PowerShell):
+    echo   [System.Environment]::SetEnvironmentVariable("NAMCO_SHEET_ID","your-sheet-id","Machine")
+    echo   [System.Environment]::SetEnvironmentVariable("NAMCO_CREDS_PATH","C:\secrets\credentials.json","Machine")
+    echo.
+    pause
+    exit /b 1
+)
+
+echo.
+echo [4/5] Cai dat Playwright browser (Chromium)...
+playwright install chromium
+if errorlevel 1 (
+    echo [LOI] Cai dat Playwright browser that bai!
+    pause
+    exit /b 1
+)
+
+echo.
+echo [5/5] Build NamcoBot...
 pip install pyinstaller
 pyinstaller --noconfirm --onedir --windowed ^
     --name "NamcoBot" ^
@@ -83,13 +91,9 @@ echo Tao thu muc Release...
 if exist Release rmdir /s /q Release
 mkdir Release
 
-:: Copy toan bo thu muc NamcoBot (binary)
 xcopy /E /I /Y dist\NamcoBot Release\NamcoBot
-
-:: Chi copy config.json (SMS/email settings) - KHONG copy data/ (secrets da baked vao binary)
 copy /Y config.json Release\config.json
 
-:: Tao shortcut RUN_BOT.bat de chay cho de
 (
     echo @echo off
     echo cd /d "%%~dp0NamcoBot"
@@ -106,6 +110,5 @@ echo    - RUN_BOT.bat  (click dup de chay)
 echo.
 echo  Sheet ID va Google credentials da BAKED vao binary.
 echo  Gui khach toan bo thu muc Release/
-echo  Khach click dup RUN_BOT.bat la chay duoc.
 echo ============================================================
 pause
