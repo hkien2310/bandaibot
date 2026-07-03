@@ -62,7 +62,7 @@ SMS_SERVER = os.getenv("SMS_SERVER", "2")
 
 # Proxy config
 USE_PROXY = os.getenv("USE_PROXY", "true").lower() == "true"
-MAX_ACCOUNTS_PER_PROXY = int(os.getenv("MAX_ACCOUNTS_PER_PROXY", "5"))
+MAX_ACCOUNTS_PER_PROXY = int(os.getenv("MAX_ACCOUNTS_PER_PROXY", "10"))
 
 # Config from JSON
 BROWSER_PATH = _json_config.get("browser_path", "")

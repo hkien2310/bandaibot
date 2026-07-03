@@ -149,7 +149,7 @@ class RegistrationWorker:
                     # Nếu thành công
                     has_bnid_local = True
                     success = True
-                    self.proxy_pool.mark_success(proxy_idx)
+                    self.proxy_pool.mark_used(proxy_idx)
                     clear_checkpoint(email)  # Xóa checkpoint sau khi SUCCESS
                     break
                 except Exception as e:
@@ -179,13 +179,16 @@ class RegistrationWorker:
                             result_data["status"] = "ABORTED"
                         result_data["error_details"] = error_msg[:200]
                         clear_checkpoint(email) # Xóa checkpoint dọn rác ổ cứng vì không bao giờ chạy lại
+                        self.proxy_pool.mark_used(proxy_idx)
                         break  # Thoát vòng retry ngay
                     
                     # ─── Lỗi CÓ THỂ RETRY ───
                     # Đánh dấu proxy chết nếu lỗi mạng
+                    is_proxy_error = False
                     if "net::ERR_" in error_msg or "Target page, context or browser has been closed" in error_msg or "Timeout" in error_msg:
                         log.warning(f"   -> Lỗi mạng/trình duyệt, đánh dấu proxy chết...")
                         self.proxy_pool.mark_failed(proxy_idx)
+                        is_proxy_error = True
                     
                     # Nếu đã có BNID thì lần retry tiếp sẽ đăng nhập thay vì đăng ký
                     if result_data["bnid_user_code"] != "":
@@ -199,6 +202,8 @@ class RegistrationWorker:
                         
                     if attempt == max_retries:
                         log.error(f"❌ Đã thử {max_retries} lần đều thất bại cho {email}")
+                        if not is_proxy_error:
+                            self.proxy_pool.mark_used(proxy_idx)
                         break
                     else:
                         log.info("⏳ Lỗi có thể retry. Thử lại sau 2 giây...")

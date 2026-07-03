@@ -17,8 +17,8 @@ class ProxyPool:
         self.dead_indices = set()
         # Đếm số lần lỗi liên tiếp của toàn hệ thống proxy
         self.consecutive_failures = 0
-        # Đếm số accounts thành công cho mỗi proxy index
-        self.success_counts = {} 
+        # Đếm số lần đã sử dụng (cả thành công và thất bại) cho mỗi proxy index
+        self.usage_counts = {} 
         
         self.load_from_list(proxy_list)
 
@@ -103,20 +103,20 @@ class ProxyPool:
                         
                     log.warning(f"Tất cả proxy sống đều đã đăng ký tối đa {config.MAX_ACCOUNTS_PER_PROXY} acc! Reset giới hạn (không reset proxy chết)...")
                     self.retired_indices.clear()
-                    self.success_counts.clear()
+                    self.usage_counts.clear()
                     # Vòng lặp sẽ tiếp tục tìm proxy sống đầu tiên vừa được un-retire
 
-    def mark_success(self, proxy_index: int):
-        """Ghi nhận đăng ký thành công cho proxy index."""
+    def mark_used(self, proxy_index: int):
+        """Ghi nhận đã sử dụng (chạy xong 1 account, dù thành công hay thất bại)."""
         if proxy_index is None:
             return
         with self.lock:
-            self.consecutive_failures = 0  # Reset counter khi có 1 proxy chạy thành công
-            count = self.success_counts.get(proxy_index, 0) + 1
-            self.success_counts[proxy_index] = count
-            log.info(f"   [Proxy Pool] Proxy index {proxy_index} đã hoàn thành đăng ký thành công {count}/{config.MAX_ACCOUNTS_PER_PROXY} accounts.")
+            self.consecutive_failures = 0  # Reset counter khi có 1 proxy chạy hết 1 luồng (sống)
+            count = self.usage_counts.get(proxy_index, 0) + 1
+            self.usage_counts[proxy_index] = count
+            log.info(f"   [Proxy Pool] Proxy index {proxy_index} đã dùng {count}/{config.MAX_ACCOUNTS_PER_PROXY} lần.")
             if count >= config.MAX_ACCOUNTS_PER_PROXY:
-                log.warning(f"   [Proxy Pool] Retire proxy index {proxy_index} (Đạt giới hạn tối đa {config.MAX_ACCOUNTS_PER_PROXY} accounts).")
+                log.warning(f"   [Proxy Pool] Retire proxy index {proxy_index} (Đạt giới hạn tối đa {config.MAX_ACCOUNTS_PER_PROXY} lần sử dụng).")
                 self.retired_indices.add(proxy_index)
 
     def count(self) -> int:
