@@ -5,6 +5,7 @@ import threading
 import sys
 import queue
 import re
+import webbrowser
 from pathlib import Path
 
 # Thêm root path để import đúng
@@ -97,17 +98,47 @@ class NamcoBotGUI:
         self.stop_btn = ttk.Button(btn_frame, text="🛑 DỪNG LẠI", command=self.stop_bot, width=20, state=tk.DISABLED)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
-        ttk.Label(frame, text="Tiến trình đang chạy:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        # Link Google Sheet
+        sheet_frame = ttk.Frame(frame)
+        sheet_frame.grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
+        ttk.Label(sheet_frame, text="📊 Google Sheet:").pack(side=tk.LEFT)
+        self.sheet_link = tk.Label(
+            sheet_frame,
+            text="(chưa cấu hình)",
+            fg="#1a73e8",
+            cursor="hand2",
+            font=("Arial", 10, "underline")
+        )
+        self.sheet_link.pack(side=tk.LEFT, padx=5)
+        self.sheet_link.bind("<Button-1>", self.open_sheet_link)
+        self._update_sheet_link()
+
+        ttk.Label(frame, text="Tiến trình đang chạy:").grid(row=6, column=0, sticky=tk.W, pady=5)
         self.log_listbox = tk.Listbox(frame, height=10, bg="#f0f0f0", fg="#333", font=("Arial", 11))
-        self.log_listbox.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.log_listbox.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(6, weight=1)
+        frame.rowconfigure(7, weight=1)
 
     def choose_browser(self):
         path = filedialog.askopenfilename(title="Chọn file chạy trình duyệt (Chromium/Chrome)")
         if path:
             self.browser_path_var.set(path)
+
+    def _update_sheet_link(self):
+        """Cập nhật text link sheet dựa trên google_sheet_id trong config."""
+        cfg = load_json_config()
+        sheet_id = cfg.get("google_sheet_id", "").strip()
+        if sheet_id and sheet_id != "PASTE_YOUR_GOOGLE_SHEET_ID_HERE":
+            self._sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}"
+            self.sheet_link.config(text="Mở Google Sheet ↗", fg="#1a73e8")
+        else:
+            self._sheet_url = ""
+            self.sheet_link.config(text="(chưa cấu hình Sheet ID)", fg="#999")
+
+    def open_sheet_link(self, event=None):
+        if self._sheet_url:
+            webbrowser.open(self._sheet_url)
 
     def update_logs(self):
         user_keywords = [
