@@ -206,9 +206,14 @@ class RegistrationWorker:
                             self.proxy_pool.mark_used(proxy_idx)
                         break
                     else:
+                        # MỞ KHÓA proxy trước khi retry để worker khác có thể dùng
+                        self.proxy_pool.release_proxy(proxy_idx)
                         log.info("⏳ Lỗi có thể retry. Thử lại sau 2 giây...")
                         import time
                         time.sleep(2)
+
+            # MỞ KHÓA proxy sau khi xử lý xong account (dù thành công hay thất bại)
+            self.proxy_pool.release_proxy(proxy_idx)
 
             # Kết quả cuối cùng — Ghi vào Google Sheets
             self.sheets_manager.update_email_status(raw_email, result_data["status"])

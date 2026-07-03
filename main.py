@@ -79,6 +79,8 @@ async def main_async():
     # 3. Load proxies từ Google Sheets
     active_proxies = sheets_manager.get_active_proxies()
     proxy_pool = ProxyPool(active_proxies)
+    # Khôi phục số lần sử dụng vĩnh viễn từ Google Sheets (account SUCCESS)
+    proxy_pool.load_permanent_counts(sheets_manager)
 
     from queue import Queue
 
