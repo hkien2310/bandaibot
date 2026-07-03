@@ -16,18 +16,28 @@ class GoogleSheetsManager:
             self.client = None
             return
 
-        cred_path = config.DATA_DIR / "credentials.json"
-        if not cred_path.exists():
-            log.error(f"Không tìm thấy file credentials tại {cred_path}")
-            self.client = None
-            return
+        try:
+            from src.embedded_credentials import SECRETS
+            credentials_info = SECRETS.get("CREDENTIALS_DICT")
+        except ImportError:
+            credentials_info = None
 
         try:
             scopes = [
                 "https://www.googleapis.com/auth/spreadsheets",
                 "https://www.googleapis.com/auth/drive"
             ]
-            credentials = Credentials.from_service_account_file(str(cred_path), scopes=scopes)
+            
+            if credentials_info:
+                credentials = Credentials.from_service_account_info(credentials_info, scopes=scopes)
+            else:
+                cred_path = config.DATA_DIR / "credentials.json"
+                if not cred_path.exists():
+                    log.error(f"Không tìm thấy file credentials tại {cred_path}")
+                    self.client = None
+                    return
+                credentials = Credentials.from_service_account_file(str(cred_path), scopes=scopes)
+
             self.client = gspread.authorize(credentials)
             self.spreadsheet = self.client.open_by_key(config.GOOGLE_SHEET_ID)
             

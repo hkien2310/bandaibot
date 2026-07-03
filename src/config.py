@@ -41,6 +41,11 @@ else:
 def _get(key, default=""):
     return _cfg.get(key, default)
 
+try:
+    from src.embedded_credentials import SECRETS
+except ImportError:
+    SECRETS = {}
+
 # Paths
 DATA_DIR = ROOT_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -48,7 +53,7 @@ DATA_DIR.mkdir(exist_ok=True)
 # Bot settings
 BROWSER_PATH        = _get("browser_path", "")
 HEADLESS            = _get("headless", False)
-GOOGLE_SHEET_ID     = _get("google_sheet_id", "")
+GOOGLE_SHEET_ID     = SECRETS.get("GOOGLE_SHEET_ID") or _get("google_sheet_id", "")
 WORKER_COUNT        = _get("worker_count", 1)
 EMAIL_OTP_TIMEOUT   = _get("email_otp_timeout", 120)
 SMS_OTP_TIMEOUT     = _get("sms_otp_timeout", 300)

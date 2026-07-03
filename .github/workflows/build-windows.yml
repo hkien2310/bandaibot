@@ -26,11 +26,16 @@ jobs:
     - name: Install Playwright browsers
       run: playwright install chromium
 
-    - name: Prepare dummy config and data for PyInstaller
+    - name: Generate embedded secrets
+      env:
+        GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        GSPREAD_CREDENTIALS: ${{ secrets.GSPREAD_CREDENTIALS }}
       run: |
-        mkdir data
+        python -c "import os, json; sheet=os.environ.get('GOOGLE_SHEET_ID',''); cred=os.environ.get('GSPREAD_CREDENTIALS','{}'); d=json.loads(cred) if cred else {}; open('src/embedded_credentials.py','w',encoding='utf-8').write(f'SECRETS = {{\n    \"GOOGLE_SHEET_ID\": {repr(sheet)},\n    \"CREDENTIALS_DICT\": {repr(d)}\n}}\n')"
+
+    - name: Prepare default config.json
+      run: |
         echo "{}" > config.json
-        echo "{}" > data/credentials.json
 
     - name: Build EXE with PyInstaller
       run: |
@@ -38,7 +43,6 @@ jobs:
           --name "NamcoBot" `
           --add-data "src;src" `
           --add-data "config.json;." `
-          --add-data "data/credentials.json;data" `
           --hidden-import=playwright `
           --hidden-import=playwright.async_api `
           --hidden-import=gspread `
@@ -50,11 +54,6 @@ jobs:
           --hidden-import=google.oauth2.service_account `
           --collect-all playwright `
           gui.py
-
-    - name: Copy config and data to dist
-      run: |
-        Copy-Item -Path "config.json" -Destination "dist/NamcoBot/config.json"
-        Copy-Item -Path "data" -Destination "dist/NamcoBot/" -Recurse
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
