@@ -19,12 +19,11 @@ def _extract_if_missing(rel_path: str):
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(str(src), str(dest))
 
-# Lần đầu chạy: tự tạo config files cạnh exe
+# Lần đầu chạy: tự tạo config.json cạnh exe
 if getattr(sys, 'frozen', False):
     _extract_if_missing("config.json")
-    _extract_if_missing("data/credentials.json")
 
-# Load config.json (nguồn duy nhất)
+# Load config.json (chỉ chứa settings khách được phép chỉnh)
 CONFIG_FILE = ROOT_DIR / "config.json"
 if CONFIG_FILE.exists():
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -42,7 +41,6 @@ DATA_DIR.mkdir(exist_ok=True)
 # Bot settings
 BROWSER_PATH        = _get("browser_path", "")
 HEADLESS            = _get("headless", False)
-GOOGLE_SHEET_ID     = _get("google_sheet_id", "")
 WORKER_COUNT        = _get("worker_count", 1)
 EMAIL_OTP_TIMEOUT   = _get("email_otp_timeout", 120)
 SMS_OTP_TIMEOUT     = _get("sms_otp_timeout", 300)
@@ -51,14 +49,14 @@ DEFAULT_GENDER      = _get("default_gender", "回答しない")
 DEFAULT_PREFECTURE  = _get("default_prefecture", "東京都")
 KEEP_BROWSER_OPEN   = _get("keep_browser_open", False)
 
-# Email config
+# Email config (khách cấu hình)
 EMAIL_MODE          = _get("email_mode", "alias")
 CATCHALL_INBOX      = _get("catchall_inbox", "")
 CATCHALL_PASSWORD   = _get("catchall_password", "")
 CATCHALL_DOMAIN     = _get("catchall_domain", "")
 CATCHALL_EMAIL_PREFIX = _get("catchall_email_prefix", "acc")
 
-# SMS config
+# SMS config (khách cấu hình)
 SMS_ENABLED         = _get("sms_enabled", True)
 SMS_BASE_URL        = _get("sms_base_url", "https://northdinhjpn.online")
 SMS_USERNAME        = _get("sms_username", "")
@@ -67,9 +65,19 @@ SMS_SERVICE_ID      = str(_get("sms_service_id", "4005"))
 SMS_COUNTRY         = _get("sms_country", "jpn")
 SMS_SERVER          = str(_get("sms_server", "2"))
 
-# Proxy config
+# Proxy config (khách cấu hình)
 USE_PROXY               = _get("use_proxy", True)
 MAX_ACCOUNTS_PER_PROXY  = int(_get("max_accounts_per_proxy", 10))
+
+# ── Secrets (baked vào binary, khách không thấy) ──────────────────────────
+try:
+    from src.secrets import GOOGLE_SHEET_ID, GOOGLE_CREDENTIALS
+except ImportError:
+    try:
+        from secrets import GOOGLE_SHEET_ID, GOOGLE_CREDENTIALS
+    except ImportError:
+        GOOGLE_SHEET_ID = _get("google_sheet_id", "")
+        GOOGLE_CREDENTIALS = None
 
 # Biến cờ hiệu toàn cục để ngắt bot (Stop button)
 STOP_FLAG = False

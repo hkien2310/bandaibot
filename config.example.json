@@ -2,7 +2,6 @@
   "browser_path": "",
   "headless": true,
   "worker_count": 1,
-  "google_sheet_id": "PASTE_YOUR_GOOGLE_SHEET_ID_HERE",
   "email_otp_timeout": 200,
   "sms_otp_timeout": 300,
   "default_password": "Namco2025!",

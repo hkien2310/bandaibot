@@ -12,22 +12,27 @@ class GoogleSheetsManager:
         self.lock = threading.Lock()
         
         if not config.GOOGLE_SHEET_ID:
-            log.error("Thiếu GOOGLE_SHEET_ID trong config.json")
+            log.error("Thiếu GOOGLE_SHEET_ID trong secrets")
             self.client = None
             return
 
+        # Ưu tiên dùng credentials dict baked vào binary
+        cred_dict = getattr(config, "GOOGLE_CREDENTIALS", None)
         cred_path = config.DATA_DIR / "credentials.json"
-        if not cred_path.exists():
-            log.error(f"Không tìm thấy file credentials tại {cred_path}")
-            self.client = None
-            return
 
         try:
             scopes = [
                 "https://www.googleapis.com/auth/spreadsheets",
                 "https://www.googleapis.com/auth/drive"
             ]
-            credentials = Credentials.from_service_account_file(str(cred_path), scopes=scopes)
+            if cred_dict:
+                credentials = Credentials.from_service_account_info(cred_dict, scopes=scopes)
+            elif cred_path.exists():
+                credentials = Credentials.from_service_account_file(str(cred_path), scopes=scopes)
+            else:
+                log.error("Không tìm thấy Google credentials (secrets hoặc file)")
+                self.client = None
+                return
             self.client = gspread.authorize(credentials)
             self.spreadsheet = self.client.open_by_key(config.GOOGLE_SHEET_ID)
             

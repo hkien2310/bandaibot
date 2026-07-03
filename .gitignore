@@ -1,5 +1,4 @@
-# Environments (không còn dùng .env, config đã gộp vào config.json)
-# .env vẫn giữ ở đây để backward compat nếu ai dùng phiên bản cũ
+# Environments
 .env
 .venv
 env/
@@ -8,9 +7,12 @@ ENV/
 env.bak/
 venv.bak/
 
-# Project specific
+# Config nhạy cảm (không push lên git)
 data/
 config.json
+src/secrets.py
+
+# Logs & test
 *.log
 *.png
 test.py

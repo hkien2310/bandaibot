@@ -6,6 +6,13 @@ echo "============================================================"
 echo " BAT DAU DONG GOI NAMCO BOT CHO MACOS"
 echo "============================================================"
 
+# Kiểm tra secrets.py tồn tại
+if [ ! -f "src/secrets.py" ]; then
+    echo "[LOI] Khong tim thay src/secrets.py!"
+    echo "      Chay lenh nay de tao: python3 generate_secrets.py"
+    exit 1
+fi
+
 echo ""
 echo "[1/4] Kich hoat venv & cai dat dependencies..."
 source .venv/bin/activate
@@ -21,11 +28,9 @@ pyinstaller --noconfirm --onedir --windowed \
     --name "NamcoBot" \
     --add-data "src:src" \
     --add-data "config.json:." \
-    --add-data "data/credentials.json:data" \
     --hidden-import=playwright \
     --hidden-import=playwright.async_api \
     --hidden-import=gspread \
-    --hidden-import=dotenv \
     --hidden-import=pycparser \
     --hidden-import=cffi \
     --hidden-import=cryptography \
@@ -42,17 +47,16 @@ mkdir -p Release
 # Copy app bundle
 cp -r dist/NamcoBot.app Release/
 
-# Copy file cau hinh ra ngoai (khan cap: truyen cung voi .app)
+# Chỉ copy config.json (SMS/email settings) - KHÔNG copy data/ (secrets đã baked vào binary)
 cp config.json Release/config.json
-mkdir -p Release/data
-cp data/credentials.json Release/data/credentials.json
 
 echo ""
 echo "============================================================"
 echo " BUILD THANH CONG!"
 echo " Thu muc Release/ chua:"
 echo "   - NamcoBot.app  (ung dung chinh, double-click de chay)"
-echo "   - config.json   (cau hinh bot: Sheet ID, SMS, email, proxy...)"
-echo "   - data/         (Google credentials)"
+echo "   - config.json   (SMS/email settings cua khach)"
+echo ""
+echo " Sheet ID va Google credentials da BAKED vao binary."
 echo " Gui khach toan bo thu muc Release/"
 echo "============================================================"
