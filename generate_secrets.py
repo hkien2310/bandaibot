@@ -1,61 +1,51 @@
 """
-Script tạo src/secrets.py từ:
-  1. Environment variables (ưu tiên - dùng trên máy build)
-  2. data/credentials.json + config.json (fallback - dùng local)
+Tạo src/secrets.py từ:
+  - config.json          → google_sheet_id
+  - data/credentials.json → Google Service Account credentials
 
-Env vars cần set trên máy build (1 lần duy nhất):
-  NAMCO_SHEET_ID   = Google Sheet ID
-  NAMCO_CREDS_PATH = Đường dẫn tới credentials.json (vd: C:\\secrets\\credentials.json)
+Chỉ cần đặt credentials.json vào thư mục data/ rồi chạy build là xong.
 """
 import json
-import os
 from pathlib import Path
 
 def generate():
-    root    = Path(__file__).parent
-    out     = root / "src" / "secrets.py"
+    root = Path(__file__).parent
 
-    # --- Đọc Sheet ID ---
-    sheet_id = os.environ.get("NAMCO_SHEET_ID", "").strip()
+    creds_path = root / "data" / "credentials.json"
+    cfg_path   = root / "config.json"
+    out_path   = root / "src" / "secrets.py"
+
+    # Đọc Sheet ID từ config.json
+    if not cfg_path.exists():
+        print("[LOI] Khong tim thay config.json")
+        return False
+    sheet_id = json.loads(cfg_path.read_text(encoding="utf-8")).get("google_sheet_id", "")
     if not sheet_id:
-        # Fallback: đọc từ config.json
-        cfg_path = root / "config.json"
-        if cfg_path.exists():
-            sheet_id = json.loads(cfg_path.read_text(encoding="utf-8")).get("google_sheet_id", "")
-    if not sheet_id:
-        print("[LOI] Chua co NAMCO_SHEET_ID. Set env var hoac dien vao config.json")
+        print("[LOI] Thieu google_sheet_id trong config.json")
         return False
 
-    # --- Đọc Google Credentials ---
-    creds = None
-    creds_path_env = os.environ.get("NAMCO_CREDS_PATH", "").strip()
-    if creds_path_env and Path(creds_path_env).exists():
-        creds = json.loads(Path(creds_path_env).read_text(encoding="utf-8"))
-        print(f"[OK] Doc credentials tu env: {creds_path_env}")
-    else:
-        # Fallback: đọc từ data/credentials.json
-        local_creds = root / "data" / "credentials.json"
-        if local_creds.exists():
-            creds = json.loads(local_creds.read_text(encoding="utf-8"))
-            print(f"[OK] Doc credentials tu local: {local_creds}")
-
-    if not creds or not creds.get("private_key"):
-        print("[LOI] Chua co Google credentials. Set NAMCO_CREDS_PATH hoac dat file vao data/credentials.json")
+    # Đọc credentials từ data/credentials.json
+    if not creds_path.exists():
+        print(f"[LOI] Khong tim thay: {creds_path}")
+        print("      Dat file credentials.json vao thu muc data/ roi chay lai!")
+        return False
+    creds = json.loads(creds_path.read_text(encoding="utf-8"))
+    if not creds.get("private_key"):
+        print("[LOI] credentials.json khong hop le")
         return False
 
-    # --- Ghi secrets.py ---
-    content = (
-        "# AUTO-GENERATED boi generate_secrets.py - KHONG COMMIT FILE NAY\n"
+    # Ghi secrets.py
+    out_path.write_text(
+        "# AUTO-GENERATED - KHONG COMMIT FILE NAY\n"
         f'GOOGLE_SHEET_ID = "{sheet_id}"\n\n'
-        f"GOOGLE_CREDENTIALS = {json.dumps(creds, indent=4, ensure_ascii=False)}\n"
+        f"GOOGLE_CREDENTIALS = {json.dumps(creds, indent=4, ensure_ascii=False)}\n",
+        encoding="utf-8"
     )
-    out.write_text(content, encoding="utf-8")
     print(f"[OK] src/secrets.py da duoc tao!")
     print(f"     Sheet ID : {sheet_id}")
     print(f"     Email    : {creds.get('client_email', '?')}")
     return True
 
 if __name__ == "__main__":
-    ok = generate()
-    if not ok:
+    if not generate():
         exit(1)

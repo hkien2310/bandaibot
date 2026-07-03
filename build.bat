@@ -35,22 +35,22 @@ if not exist config.json (
 )
 
 echo.
-echo [3/5] Tao src\secrets.py tu env vars...
-python generate_secrets.py
-if errorlevel 1 (
-    echo.
-    echo [LOI] Khong tao duoc secrets.py!
-    echo.
-    echo Cach fix: Set env vars 1 lan tren may nay:
-    echo   - NAMCO_SHEET_ID   = Google Sheet ID cua ban
-    echo   - NAMCO_CREDS_PATH = Duong dan toi credentials.json
-    echo.
-    echo Vi du (chay trong PowerShell):
-    echo   [System.Environment]::SetEnvironmentVariable("NAMCO_SHEET_ID","your-sheet-id","Machine")
-    echo   [System.Environment]::SetEnvironmentVariable("NAMCO_CREDS_PATH","C:\secrets\credentials.json","Machine")
-    echo.
-    pause
-    exit /b 1
+echo [3/5] Kiem tra src\secrets.py...
+if exist src\secrets.py (
+    echo src\secrets.py da co san - dung luon!
+) else (
+    echo Chua co src\secrets.py, thu generate tu data\credentials.json...
+    python generate_secrets.py
+    if errorlevel 1 (
+        echo.
+        echo [LOI] Khong tao duoc secrets.py!
+        echo.
+        echo Cach fix don gian nhat:
+        echo   Copy file src\secrets.py vao thu muc src\ roi chay lai build.bat
+        echo.
+        pause
+        exit /b 1
+    )
 )
 
 echo.
