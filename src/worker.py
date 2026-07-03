@@ -44,7 +44,8 @@ class RegistrationWorker:
 
             # (Không cần check CSV nữa vì get_pending_emails đã lọc rồi)
             # Load checkpoint nếu có (resume từ bước trước)
-            cp = load_checkpoint(email) or {}
+            # DO SẾP YÊU CẦU LUÔN CHẠY SIGNUP, TA BỎ QUA CHECKPOINT LUÔN ĐỂ CHẠY TỪ ĐẦU
+            cp = {}
 
             # Sinh/đọc dữ liệu — dùng checkpoint nếu có để đảm bảo nhất quán
             password = cp.get("password") or generate_password(email)
@@ -68,10 +69,8 @@ class RegistrationWorker:
                 "error_details": ""
             }
 
-            # Biến cục bộ lưu trạng thái đã đăng ký BNID hay chưa để xoay tua khi lỗi proxy
-            # Nếu tài khoản đã có bnid_user_code nhưng chưa đăng ký xong (vẫn chạy tiếp) -> phải đi luồng 2 (Login)
-            has_bnid_local = True if cp.get("bnid_user_code") else cp.get("has_bnid", config.HAS_BNID)
-
+            # BỎ QUA LOGIN THEO YÊU CẦU CỦA SẾP (LUÔN CHẠY SIGNUP MỚI)
+            has_bnid_local = False
             
             # Chỉ thử 1 lần cho mỗi lượt chạy. Lỗi thì chuyển sang account tiếp theo luôn.
             max_retries = 1
