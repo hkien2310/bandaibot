@@ -40,7 +40,61 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/5] Build NamcoBot...
+echo [4/5] Tao file config template neu chua co...
+
+:: Tao config.json template neu chua co
+if not exist config.json (
+    echo Tao config.json template...
+    (
+        echo {
+        echo     "headless": true,
+        echo     "worker_count": 1,
+        echo     "google_sheet_id": "",
+        echo     "email_otp_timeout": 120,
+        echo     "sms_otp_timeout": 300,
+        echo     "default_password": "Namco2025!",
+        echo     "default_gender": "^回答しない",
+        echo     "default_prefecture": "^東京都",
+        echo     "keep_browser_open": false,
+        echo     "browser_path": ""
+        echo }
+    ) > config.json
+    echo config.json da duoc tao!
+)
+
+:: Tao .env template neu chua co
+if not exist .env (
+    echo Tao .env template...
+    (
+        echo EMAIL_MODE=alias
+        echo CATCHALL_INBOX=
+        echo CATCHALL_PASSWORD=
+        echo CATCHALL_DOMAIN=
+        echo CATCHALL_EMAIL_PREFIX=acc
+        echo SMS_ENABLED=true
+        echo SMS_BASE_URL=https://northdinhjpn.online
+        echo SMS_USERNAME=
+        echo SMS_PASSWORD=
+        echo SMS_SERVICE_ID=1017
+        echo SMS_COUNTRY=jpn
+        echo SMS_SERVER=2
+        echo USE_PROXY=true
+        echo MAX_ACCOUNTS_PER_PROXY=10
+    ) > .env
+    echo .env da duoc tao!
+)
+
+:: Tao thu muc data neu chua co
+if not exist data mkdir data
+
+:: Tao credentials.json placeholder neu chua co
+if not exist data\credentials.json (
+    echo {} > data\credentials.json
+    echo data\credentials.json placeholder da duoc tao - nho thay the bang file that!
+)
+
+echo.
+echo [5/5] Build NamcoBot...
 pyinstaller --noconfirm --onedir --windowed ^
     --name "NamcoBot" ^
     --add-data "src;src" ^
@@ -51,7 +105,6 @@ pyinstaller --noconfirm --onedir --windowed ^
     --hidden-import=playwright.async_api ^
     --hidden-import=gspread ^
     --hidden-import=dotenv ^
-    --hidden-import=python_dotenv ^
     --hidden-import=pycparser ^
     --hidden-import=cffi ^
     --hidden-import=cryptography ^
@@ -67,14 +120,14 @@ if errorlevel 1 (
 )
 
 echo.
-echo [5/5] Tao thu muc Release...
+echo Tao thu muc Release...
 if exist Release rmdir /s /q Release
 mkdir Release
 
 :: Copy toan bo thu muc NamcoBot
 xcopy /E /I /Y dist\NamcoBot Release\NamcoBot
 
-:: Copy file cau hinh ra ngoai (quan trong: nam cung cap voi thu muc NamcoBot)
+:: Copy file cau hinh ra ngoai cung cap voi thu muc NamcoBot
 copy /Y config.json Release\config.json
 copy /Y .env Release\.env
 if exist data\credentials.json (
@@ -83,14 +136,22 @@ if exist data\credentials.json (
 )
 
 :: Tao shortcut RUN_BOT.bat de chay cho de
-echo @echo off > Release\RUN_BOT.bat
-echo cd /d "%%~dp0NamcoBot" >> Release\RUN_BOT.bat
-echo start NamcoBot.exe >> Release\RUN_BOT.bat
+(
+    echo @echo off
+    echo cd /d "%%~dp0NamcoBot"
+    echo start NamcoBot.exe
+) > Release\RUN_BOT.bat
 
 echo.
 echo ============================================================
 echo  BUILD THANH CONG!
 echo  Thu muc Release/ chua toan bo file can thiet.
+echo.
+echo  LUU Y QUAN TRONG:
+echo  - Thay the Release\data\credentials.json bang file that
+echo  - Dien day du thong tin vao Release\.env
+echo  - Dien Google Sheet ID vao Release\config.json
+echo.
 echo  Gui khach toan bo thu muc Release/
 echo  Khach click dup RUN_BOT.bat la chay duoc.
 echo ============================================================
