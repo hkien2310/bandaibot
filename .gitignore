@@ -9,7 +9,7 @@ venv.bak/
 
 # Config nhạy cảm (không push lên git)
 data/
-config.json
+user_config.json
 src/secrets.py
 
 # Logs & test

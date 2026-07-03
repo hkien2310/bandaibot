@@ -17,9 +17,11 @@ else:
 
 sys.path.insert(0, str(ROOT_DIR))
 
-config_path = ROOT_DIR / "config.json"
+config_path      = ROOT_DIR / "config.json"       # fixed, committed
+user_config_path = ROOT_DIR / "user_config.json"  # sensitive, local only
 
 def load_json_config():
+    """Load config.json (fixed settings)"""
     if config_path.exists():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -28,8 +30,22 @@ def load_json_config():
             pass
     return {}
 
+def load_user_config():
+    """Load user_config.json (sensitive settings - local only)"""
+    if user_config_path.exists():
+        try:
+            with open(user_config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
 def save_json_config(data):
     with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+def save_user_config(data):
+    with open(user_config_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
@@ -52,15 +68,18 @@ class NamcoBotGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Namco Parks Auto Bot")
-        self.root.geometry("640x480")
+        self.root.geometry("640x560")
         self.root.resizable(False, False)
 
-        cfg = load_json_config()
-        self.limit_var = tk.StringVar(value="")
-        self.workers_var = tk.StringVar(value=str(cfg.get("worker_count", 3)))
-        self.headless_var = tk.BooleanVar(value=cfg.get("headless", True))
-        self.proxy_var = tk.BooleanVar(value=cfg.get("use_proxy", True))
+        cfg  = load_json_config()
+        ucfg = load_user_config()
+        self.limit_var       = tk.StringVar(value="")
+        self.workers_var     = tk.StringVar(value=str(cfg.get("worker_count", 3)))
+        self.headless_var    = tk.BooleanVar(value=cfg.get("headless", True))
+        self.proxy_var       = tk.BooleanVar(value=cfg.get("use_proxy", True))
         self.browser_path_var = tk.StringVar(value=cfg.get("browser_path", ""))
+        self.sms_user_var    = tk.StringVar(value=ucfg.get("sms_username", ""))
+        self.sms_pass_var    = tk.StringVar(value=ucfg.get("sms_password", ""))
 
         self.setup_ui()
 
@@ -93,36 +112,41 @@ class NamcoBotGUI:
         ttk.Checkbutton(chk_frame, text="Chạy ngầm (Headless)", variable=self.headless_var).pack(side=tk.LEFT, padx=10)
         ttk.Checkbutton(chk_frame, text="Dùng Proxy", variable=self.proxy_var).pack(side=tk.LEFT, padx=10)
 
-        btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=4, column=0, columnspan=3, pady=10)
+        # SMS credentials
+        ttk.Label(frame, text="SMS Username:").grid(row=4, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(frame, textvariable=self.sms_user_var, width=30).grid(row=4, column=1, sticky=tk.W, pady=3)
 
-        self.start_btn = ttk.Button(btn_frame, text="🚀 BẮT ĐẦU CHẠY", command=self.start_bot, width=20)
+        ttk.Label(frame, text="SMS Password:").grid(row=5, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(frame, textvariable=self.sms_pass_var, width=30, show="*").grid(row=5, column=1, sticky=tk.W, pady=3)
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=6, column=0, columnspan=3, pady=8)
+
+        self.start_btn = ttk.Button(btn_frame, text="🚀 BẮt ĐẦU CHẠY", command=self.start_bot, width=20)
         self.start_btn.pack(side=tk.LEFT, padx=5)
 
-        self.stop_btn = ttk.Button(btn_frame, text="🛑 DỪNG LẠI", command=self.stop_bot, width=20, state=tk.DISABLED)
+        self.stop_btn = ttk.Button(btn_frame, text="🛑 DỪ NG LẠI", command=self.stop_bot, width=20, state=tk.DISABLED)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
         # Link Google Sheet
         sheet_frame = ttk.Frame(frame)
-        sheet_frame.grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
+        sheet_frame.grid(row=7, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
         ttk.Label(sheet_frame, text="📊 Google Sheet:").pack(side=tk.LEFT)
         self.sheet_link = tk.Label(
-            sheet_frame,
-            text="(chưa cấu hình)",
-            fg="#1a73e8",
-            cursor="hand2",
+            sheet_frame, text="(chưa cấu hình)",
+            fg="#1a73e8", cursor="hand2",
             font=("Arial", 10, "underline")
         )
         self.sheet_link.pack(side=tk.LEFT, padx=5)
         self.sheet_link.bind("<Button-1>", self.open_sheet_link)
         self._update_sheet_link()
 
-        ttk.Label(frame, text="Tiến trình đang chạy:").grid(row=6, column=0, sticky=tk.W, pady=5)
-        self.log_listbox = tk.Listbox(frame, height=10, bg="#f0f0f0", fg="#333", font=("Arial", 11))
-        self.log_listbox.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
+        ttk.Label(frame, text="Tiến trình đang chạy:").grid(row=8, column=0, sticky=tk.W, pady=5)
+        self.log_listbox = tk.Listbox(frame, height=8, bg="#f0f0f0", fg="#333", font=("Arial", 11))
+        self.log_listbox.grid(row=9, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(7, weight=1)
+        frame.rowconfigure(9, weight=1)
 
     def _check_and_install_browser(self):
         """Kiểm tra Playwright Chromium, nếu chưa có thì tự cài trong background."""
@@ -245,16 +269,23 @@ class NamcoBotGUI:
         self.root.after(50, self.update_logs)
 
     def save_settings(self):
-        """Lưu toàn bộ cài đặt vào config.json duy nhất"""
+        """Lưu toàn bộ: cài đặt cố định vào config.json, credentials vào user_config.json"""
+        # config.json - chỉ lưu giá trị cố định
         cfg = load_json_config()
         try:
             cfg["worker_count"] = int(self.workers_var.get())
         except:
             cfg["worker_count"] = 3
-        cfg["headless"] = self.headless_var.get()
-        cfg["browser_path"] = self.browser_path_var.get()
-        cfg["use_proxy"] = self.proxy_var.get()
+        cfg["headless"]      = self.headless_var.get()
+        cfg["browser_path"]  = self.browser_path_var.get()
+        cfg["use_proxy"]     = self.proxy_var.get()
         save_json_config(cfg)
+
+        # user_config.json - credentials nhạy cảm của client
+        ucfg = load_user_config()
+        ucfg["sms_username"] = self.sms_user_var.get().strip()
+        ucfg["sms_password"] = self.sms_pass_var.get().strip()
+        save_user_config(ucfg)
 
     def start_bot(self):
         # Lưu config trước
