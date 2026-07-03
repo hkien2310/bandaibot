@@ -67,6 +67,8 @@ class RegistrationWorker:
                 "bandai_password": password,
                 "namco_password": password,
                 "nickname": nickname,
+                "birthday": birthday,
+                "prefecture": prefecture,
                 "phone": "",
                 "bnid_user_code": "",
                 "proxy_used": "",
@@ -140,7 +142,7 @@ class RegistrationWorker:
                 
                 result_data["proxy_used"] = proxy_str
                 
-                log.info(f"🚀 [Attempt {attempt}/{max_retries}] Bắt đầu xử lý: {email} | Proxy: {proxy_str} | HasBNID: {has_bnid_local}")
+                log.info(f"🚀 [Attempt {attempt}/{max_retries}] Bắt đầu xử lý: {email} | Proxy: {proxy_str} | HasBNID: {has_bnid_local} | DOB: {birthday} | Location: {prefecture}")
                 
                 # Cập nhật status lên sheet Mails (dùng raw_email để match dòng trên Sheet)
                 result_data["status"] = "PROCESSING"

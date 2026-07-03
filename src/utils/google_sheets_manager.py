@@ -38,7 +38,7 @@ class GoogleSheetsManager:
             self.accounts_columns = [
                 "Email", "Bandai Password", "Namco Password", "Nickname", 
                 "Phone", "BNID", "Proxy Used", "Status", "Created At", "Error Details",
-                "Data Usage (MB)"
+                "Data Usage (MB)", "DOB", "Location"
             ]
             self.accounts_sheet = self._get_or_create_worksheet("Accounts", self.accounts_columns)
             
@@ -213,6 +213,12 @@ class GoogleSheetsManager:
                 "Bandai Password": "bandai_password",
                 "Namco Password": "namco_password",
                 "Nickname": "nickname",
+                "DOB": "birthday",
+                "Ngày sinh": "birthday",
+                "Birthday": "birthday",
+                "Location": "prefecture",
+                "Tỉnh thành": "prefecture",
+                "Prefecture": "prefecture",
                 "Phone": "phone",
                 "BNID": "bnid_user_code",
                 "Proxy Used": "proxy_used",
