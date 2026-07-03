@@ -1,25 +1,28 @@
 {
-  "google_sheet_id": "18qwM6DmmQ9c8S0gYF4DfifVyXRHe6-MnKA3RFBZ4wV4",
-
-  "headless": true,
+  "browser_path": "",
+  "headless": false,
+  "google_sheets_webhook_url": "https://script.google.com/macros/s/AKfycbywnMbhSoBcfPIHuy8-fl_UnTfeF1xKWgANDd1b8OkPZvmSNCvB6Rwra_KMrborCq-K/exec",
   "worker_count": 1,
   "email_otp_timeout": 200,
   "sms_otp_timeout": 300,
   "default_password": "Namco2025!",
   "default_gender": "回答しない",
-  "default_prefecture": "東京都",
+  "default_prefecture": "愛知県",
+  "default_dob": "1994-05-08",
   "keep_browser_open": false,
-  "browser_path": "",
-
+  "google_sheet_id": "18qwM6DmmQ9c8S0PoY1ureJqMo3UOBkQfDUBy3lOr3EE",
   "email_mode": "alias",
+  "catchall_inbox": "attj41@gmail.com",
+  "catchall_password": "qlno nlfa fkfq wzxj",
   "catchall_email_prefix": "acc",
-
   "sms_enabled": true,
   "sms_base_url": "https://northdinhjpn.online",
+  "sms_api_key": "",
+  "sms_username": "rockyvuong",
+  "sms_password": "Mkrockyvuong",
   "sms_service_id": "4005",
   "sms_country": "jpn",
   "sms_server": "2",
-
   "use_proxy": true,
-  "max_accounts_per_proxy": 10
+  "max_accounts_per_proxy": 2
 }

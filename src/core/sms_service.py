@@ -18,6 +18,10 @@ def _get_apikey() -> str:
     """Get apikey from cache or API. Thread-safe."""
     global _apikey, _apikey_expires
     
+    # Nếu đã cấu hình cứng sms_api_key trong config.json, dùng luôn không cần gọi API getKey
+    if config.SMS_API_KEY:
+        return config.SMS_API_KEY
+        
     with _apikey_lock:
         now = time.time()
         
@@ -189,8 +193,17 @@ def poll_sms_otp(
         remaining = int(deadline - time.time())
         if remaining <= 0:
             break
-        log.debug(f"  Chưa có OTP, thử lại sau {poll_interval}s (còn {remaining}s)")
-        time.sleep(poll_interval)
+        # Chờ ngắt quãng để phản hồi nút STOP ngay lập tức
+        import src.config as config
+        stop_requested = False
+        for _ in range(int(poll_interval * 2)):
+            if config.STOP_FLAG:
+                stop_requested = True
+                break
+            time.sleep(0.5)
+        if stop_requested:
+            log.warning("🛑 Nhận lệnh STOP, dừng chờ OTP SMS.")
+            break
 
     log.warning(f"⏰ Timeout {timeout}s — không nhận được SMS OTP")
     return None

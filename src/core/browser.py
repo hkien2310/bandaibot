@@ -23,6 +23,11 @@ class BrowserInstance:
 
         self.playwright = await async_playwright().start()
 
+        # Thêm instance vào ACTIVE_BROWSERS để cho phép GUI đóng khẩn cấp khi người dùng bấm Stop
+        if not hasattr(config, "ACTIVE_BROWSERS"):
+            config.ACTIVE_BROWSERS = []
+        config.ACTIVE_BROWSERS.append(self)
+
         # Cấu hình proxy cho Playwright — phải truyền đủ server + username + password
         launch_args = {}
         if self.proxy:
@@ -137,6 +142,13 @@ class BrowserInstance:
             except Exception as e:
                 log.warning(f"Lỗi khi stop playwright: {e}")
             self.playwright = None
+
+        # Xóa khỏi ACTIVE_BROWSERS
+        if hasattr(config, "ACTIVE_BROWSERS") and self in config.ACTIVE_BROWSERS:
+            try:
+                config.ACTIVE_BROWSERS.remove(self)
+            except ValueError:
+                pass
 
         self.cleanup_profile_dir()
 

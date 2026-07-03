@@ -16,7 +16,7 @@ def format_jp_phone(phone_raw: str) -> str:
         phone = "0" + phone
     return phone
 
-async def run_step4(page: Page, email: str, password: str, nickname: str, birthday_str: str) -> tuple[str, str]:
+async def run_step4(page: Page, email: str, password: str, nickname: str, birthday_str: str, prefecture: str) -> tuple[str, str]:
     """
     Step 4: Điền thông tin profile Namco Parks & Thuê số điện thoại
     """
@@ -410,7 +410,7 @@ async def run_step4(page: Page, email: str, password: str, nickname: str, birthd
         log.warning(f"   Lỗi chọn ngày sinh: {e}")
 
     # ─── 5. Tỉnh thành ───
-    pref_val = config.DEFAULT_PREFECTURE
+    pref_val = prefecture
     log.info(f"6. Chọn Tỉnh thành: {pref_val}")
     try:
         all_selects2 = await page.evaluate("""

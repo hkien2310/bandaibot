@@ -44,7 +44,21 @@ class RegistrationWorker:
 
             # Sinh/đọc dữ liệu
             password = generate_password(email)
-            birthday = generate_birthday(email)
+            
+            # Đọc ngày tháng năm sinh (ưu tiên từ Sheet Mails, nếu không có thì dùng config.DEFAULT_DOB, nếu không có nữa thì sinh ngẫu nhiên)
+            dob_from_sheet = email_data.get("dob", "").strip()
+            if dob_from_sheet:
+                birthday = dob_from_sheet
+            elif config.DEFAULT_DOB:
+                birthday = config.DEFAULT_DOB
+            else:
+                birthday = generate_birthday(email)
+                
+            # Đọc tỉnh thành (ưu tiên từ Sheet Mails, nếu không có thì dùng config.DEFAULT_PREFECTURE)
+            prefecture = email_data.get("prefecture", "").strip()
+            if not prefecture:
+                prefecture = config.DEFAULT_PREFECTURE
+
             nickname = generate_nickname(email)
             
             # Khởi tạo thông tin ghi kết quả ban đầu
@@ -139,7 +153,7 @@ class RegistrationWorker:
                         else:
                             raise Exception("Không tìm được proxy sống sau 3 lần thử.")
                         
-                    asyncio.run(self._process_account_async(email, password, nickname, birthday, proxy, result_data, has_bnid_local, email_password))
+                    asyncio.run(self._process_account_async(email, password, nickname, birthday, prefecture, proxy, result_data, has_bnid_local, email_password))
                     # Nếu thành công
                     has_bnid_local = True
                     success = True
@@ -201,10 +215,18 @@ class RegistrationWorker:
                         self.proxy_pool.release_proxy(proxy_idx)
                         log.info("⏳ Lỗi có thể retry. Thử lại sau 2 giây...")
                         import time
-                        time.sleep(2)
+                        # Chờ ngắt quãng để phản hồi STOP ngay lập tức
+                        for _ in range(4):
+                            if config.STOP_FLAG: break
+                            time.sleep(0.5)
 
             # MỞ KHÓA proxy sau khi xử lý xong account (dù thành công hay thất bại)
             self.proxy_pool.release_proxy(proxy_idx)
+
+            if config.STOP_FLAG:
+                log.warning("🛑 Nhận lệnh STOP, bỏ qua ghi Google Sheets và dừng luồng.")
+                self.email_queue.task_done()
+                break
 
             # Kết quả cuối cùng — Ghi vào Google Sheets
             self.sheets_manager.update_email_status(raw_email, result_data["status"])
@@ -212,7 +234,7 @@ class RegistrationWorker:
             self.email_queue.task_done()
             log.info(f"Kết thúc xử lý tài khoản {email}\n" + "-"*50)
 
-    async def _process_account_async(self, email, password, nickname, birthday, proxy, result_data, has_bnid_local, email_password: str = ""):
+    async def _process_account_async(self, email, password, nickname, birthday, prefecture, proxy, result_data, has_bnid_local, email_password: str = ""):
         """Chạy các bước đăng ký tuần tự trong cùng một event loop."""
         browser = BrowserInstance(worker_id=self.worker_id, proxy=proxy)
         try:
@@ -231,12 +253,14 @@ class RegistrationWorker:
                 raise Exception(f"Lỗi Bước 1 (Vào trang chủ): {str(e).split('Call log')[0].strip()}")
 
             # Step 2: Click nút vàng Get BNID
+            if config.STOP_FLAG: raise Exception("KeyboardInterrupt")
             try:
                 await run_step2(page, has_bnid=has_bnid_local)
             except Exception as e:
                 raise Exception(f"Lỗi Bước 2 (Click nút Get BNID): {str(e).split('Call log')[0].strip()}")
 
             # Step 3: Đăng ký BNID + Nhập OTP Email + Bóc BNID User Code
+            if config.STOP_FLAG: raise Exception("KeyboardInterrupt")
             try:
                 bnid_user_code = await run_step3(page, email, password, birthday, has_bnid=has_bnid_local, email_password=email_password)
                 if bnid_user_code and bnid_user_code != "ALREADY_LOGGED_IN":
@@ -253,8 +277,9 @@ class RegistrationWorker:
                     raise Exception(f"Lỗi Bước 3 (Tạo BNID): Mạng chậm hoặc web thay đổi ({err.split('Call log')[0].strip()})")
 
             # Step 4: Điền Profile Namco Parks + Thuê số điện thoại
+            if config.STOP_FLAG: raise Exception("KeyboardInterrupt")
             try:
-                step4_result = await run_step4(page, email, password, nickname, birthday)
+                step4_result = await run_step4(page, email, password, nickname, birthday, prefecture)
                 phone, pkey = step4_result  # run_step4 luôn trả tuple (phone, pkey)
                 
                 if phone == "ALREADY_REGISTERED":
@@ -270,6 +295,7 @@ class RegistrationWorker:
                 raise Exception(f"Lỗi Bước 4 (Điền Profile): {str(e).split('Call log')[0].strip()}")
 
             # Step 5: Xác thực SMS OTP
+            if config.STOP_FLAG: raise Exception("KeyboardInterrupt")
             try:
                 await run_step5(page, phone, pkey)
                 log.info("✅ Step 5 done — SMS Verified successfully")

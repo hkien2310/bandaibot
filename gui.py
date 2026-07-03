@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 import json
 import threading
-import subprocess
 import sys
 import queue
 import re
@@ -11,17 +10,20 @@ from pathlib import Path
 
 # Thêm root path để import đúng
 if getattr(sys, 'frozen', False):
-    ROOT_DIR = Path(sys.executable).parent
+    _exe_dir = Path(sys.executable).parent
+    # macOS .app bundle: executable ở NamcoBot.app/Contents/MacOS/NamcoBot
+    if _exe_dir.name == "MacOS" and _exe_dir.parent.name == "Contents":
+        ROOT_DIR = _exe_dir.parent.parent.parent
+    else:
+        ROOT_DIR = _exe_dir
 else:
     ROOT_DIR = Path(__file__).parent
 
 sys.path.insert(0, str(ROOT_DIR))
 
-config_path      = ROOT_DIR / "config.json"       # fixed, committed
-user_config_path = ROOT_DIR / "user_config.json"  # sensitive, local only
+config_path = ROOT_DIR / "config.json"
 
 def load_json_config():
-    """Load config.json (fixed settings)"""
     if config_path.exists():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -30,22 +32,8 @@ def load_json_config():
             pass
     return {}
 
-def load_user_config():
-    """Load user_config.json (sensitive settings - local only)"""
-    if user_config_path.exists():
-        try:
-            with open(user_config_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            pass
-    return {}
-
 def save_json_config(data):
     with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-def save_user_config(data):
-    with open(user_config_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
@@ -68,20 +56,33 @@ class NamcoBotGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Namco Parks Auto Bot")
-        self.root.geometry("640x620")
+        self.root.geometry("640x480")
         self.root.resizable(False, False)
 
-        cfg  = load_json_config()
-        ucfg = load_user_config()
-        self.limit_var        = tk.StringVar(value="")
-        self.workers_var      = tk.StringVar(value=str(cfg.get("worker_count", 3)))
-        self.headless_var     = tk.BooleanVar(value=cfg.get("headless", True))
-        self.proxy_var        = tk.BooleanVar(value=cfg.get("use_proxy", True))
-        self.browser_path_var = tk.StringVar(value=cfg.get("browser_path", ""))
-        self.sms_user_var     = tk.StringVar(value=ucfg.get("sms_username", ""))
-        self.sms_pass_var     = tk.StringVar(value=ucfg.get("sms_password", ""))
-        self.email_inbox_var  = tk.StringVar(value=ucfg.get("catchall_inbox", ""))
-        self.email_pass_var   = tk.StringVar(value=ucfg.get("catchall_password", ""))
+        cfg = load_json_config()
+        self.limit_var = tk.StringVar()
+        self.limit_var.set("")
+
+        self.workers_var = tk.StringVar()
+        self.workers_var.set(str(cfg.get("worker_count", 3)))
+
+        self.headless_var = tk.BooleanVar()
+        self.headless_var.set(bool(cfg.get("headless", True)))
+
+        self.proxy_var = tk.BooleanVar()
+        self.proxy_var.set(bool(cfg.get("use_proxy", True)))
+
+        self.browser_path_var = tk.StringVar()
+        self.browser_path_var.set(cfg.get("browser_path", ""))
+
+        self.default_dob_var = tk.StringVar()
+        self.default_dob_var.set(cfg.get("default_dob", "1994-05-08"))
+
+        self.default_pref_var = tk.StringVar()
+        self.default_pref_var.set(cfg.get("default_prefecture", "愛知県"))
+
+        # Tự động lưu cấu hình khi đóng cửa sổ app
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.setup_ui()
 
@@ -91,9 +92,6 @@ class NamcoBotGUI:
         # Override stdout/stderr để logger in ra GUI
         sys.stdout = TextRedirector(self.log_queue)
         sys.stderr = TextRedirector(self.log_queue)
-
-        # Kiểm tra và tự cài Playwright Chromium nếu chưa có
-        self.root.after(300, self._check_and_install_browser)
 
     def setup_ui(self):
         frame = ttk.Frame(self.root, padding="15")
@@ -109,118 +107,53 @@ class NamcoBotGUI:
         ttk.Label(frame, text="Số Worker (Luồng chạy song song):").grid(row=2, column=0, sticky=tk.W, pady=5)
         ttk.Entry(frame, textvariable=self.workers_var, width=15).grid(row=2, column=1, sticky=tk.W, pady=5)
 
+        ttk.Label(frame, text="Ngày sinh mặc định (YYYY-MM-DD):").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(frame, textvariable=self.default_dob_var, width=15).grid(row=3, column=1, sticky=tk.W, pady=5)
+
+        ttk.Label(frame, text="Tỉnh/Thành phố mặc định:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(frame, textvariable=self.default_pref_var, width=15).grid(row=4, column=1, sticky=tk.W, pady=5)
+
         chk_frame = ttk.Frame(frame)
-        chk_frame.grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=10)
+        chk_frame.grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=10)
         ttk.Checkbutton(chk_frame, text="Chạy ngầm (Headless)", variable=self.headless_var).pack(side=tk.LEFT, padx=10)
         ttk.Checkbutton(chk_frame, text="Dùng Proxy", variable=self.proxy_var).pack(side=tk.LEFT, padx=10)
 
-        # SMS credentials
-        ttk.Label(frame, text="SMS Username:").grid(row=4, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(frame, textvariable=self.sms_user_var, width=30).grid(row=4, column=1, sticky=tk.W, pady=3)
-
-        ttk.Label(frame, text="SMS Password:").grid(row=5, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(frame, textvariable=self.sms_pass_var, width=30, show="*").grid(row=5, column=1, sticky=tk.W, pady=3)
-
-        # Email credentials
-        ttk.Label(frame, text="Email Inbox:").grid(row=6, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(frame, textvariable=self.email_inbox_var, width=30).grid(row=6, column=1, sticky=tk.W, pady=3)
-
-        ttk.Label(frame, text="Email Password:").grid(row=7, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(frame, textvariable=self.email_pass_var, width=30, show="*").grid(row=7, column=1, sticky=tk.W, pady=3)
-
-        btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=8, column=0, columnspan=3, pady=8)
-
-        self.start_btn = ttk.Button(btn_frame, text="🚀 BẮt ĐẦU CHẠY", command=self.start_bot, width=20)
-        self.start_btn.pack(side=tk.LEFT, padx=5)
-
-        self.stop_btn = ttk.Button(btn_frame, text="🛑 DỪ NG LẠI", command=self.stop_bot, width=20, state=tk.DISABLED)
-        self.stop_btn.pack(side=tk.LEFT, padx=5)
-
         # Link Google Sheet
         sheet_frame = ttk.Frame(frame)
-        sheet_frame.grid(row=9, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
+        sheet_frame.grid(row=6, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
         ttk.Label(sheet_frame, text="📊 Google Sheet:").pack(side=tk.LEFT)
         self.sheet_link = tk.Label(
-            sheet_frame, text="(chưa cấu hình)",
-            fg="#1a73e8", cursor="hand2",
+            sheet_frame,
+            text="(chưa cấu hình)",
+            fg="#1a73e8",
+            cursor="hand2",
             font=("Arial", 10, "underline")
         )
         self.sheet_link.pack(side=tk.LEFT, padx=5)
         self.sheet_link.bind("<Button-1>", self.open_sheet_link)
         self._update_sheet_link()
 
-        ttk.Label(frame, text="Tiến trình đang chạy:").grid(row=10, column=0, sticky=tk.W, pady=5)
-        self.log_listbox = tk.Listbox(frame, height=6, bg="#f0f0f0", fg="#333", font=("Arial", 11))
-        self.log_listbox.grid(row=11, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=7, column=0, columnspan=3, pady=10)
+
+        self.start_btn = ttk.Button(btn_frame, text="🚀 BẮT ĐẦU CHẠY", command=self.start_bot, width=20)
+        self.start_btn.pack(side=tk.LEFT, padx=5)
+
+        self.stop_btn = ttk.Button(btn_frame, text="🛑 DỪNG LẠI", command=self.stop_bot, width=20, state=tk.DISABLED)
+        self.stop_btn.pack(side=tk.LEFT, padx=5)
+
+        log_label_frame = ttk.Frame(frame)
+        log_label_frame.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        ttk.Label(log_label_frame, text="Tiến trình đang chạy:").pack(side=tk.LEFT)
+        self.copy_btn = ttk.Button(log_label_frame, text="📋 Sao chép Log", command=self.copy_log)
+        self.copy_btn.pack(side=tk.RIGHT)
+
+        self.log_listbox = tk.Listbox(frame, height=10, bg="#f0f0f0", fg="#333", font=("Arial", 11))
+        self.log_listbox.grid(row=9, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(11, weight=1)
-
-    def _check_and_install_browser(self):
-        """Kiểm tra Playwright Chromium, nếu chưa có thì tự cài trong background."""
-        def _is_chromium_installed():
-            try:
-                from playwright.sync_api import sync_playwright
-                with sync_playwright() as p:
-                    # Chỉ check executable path tồn tại, không mở browser
-                    exe = p.chromium.executable_path
-                    return Path(exe).exists()
-            except Exception:
-                return False
-
-        def _install():
-            self.start_btn.config(state=tk.DISABLED, text="⏳ Đang cài trình duyệt...")
-            self.log_listbox.insert(tk.END, "🔧 Kiểm tra Playwright Chromium...")
-            self.log_listbox.see(tk.END)
-
-            if _is_chromium_installed():
-                self.root.after(0, lambda: (
-                    self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY"),
-                    self.log_listbox.insert(tk.END, "✅ Trình duyệt sẵn sàng."),
-                    self.log_listbox.see(tk.END)
-                ))
-                return
-
-            # Chưa có → tự cài
-            self.root.after(0, lambda: (
-                self.log_listbox.insert(tk.END, "📥 Lần đầu chạy: Đang cài Chromium (~300MB), vui lòng đợi..."),
-                self.log_listbox.see(tk.END)
-            ))
-
-            try:
-                # Chạy playwright install chromium
-                result = subprocess.run(
-                    [sys.executable, "-m", "playwright", "install", "chromium"],
-                    capture_output=True, text=True, timeout=300
-                )
-                if result.returncode == 0:
-                    self.root.after(0, lambda: (
-                        self.log_listbox.insert(tk.END, "✅ Cài Chromium thành công! Sẵn sàng chạy bot."),
-                        self.log_listbox.see(tk.END),
-                        self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
-                    ))
-                else:
-                    err = result.stderr[:200] if result.stderr else "Unknown error"
-                    self.root.after(0, lambda e=err: (
-                        self.log_listbox.insert(tk.END, f"❌ Cài Chromium thất bại: {e}"),
-                        self.log_listbox.see(tk.END),
-                        self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
-                    ))
-            except subprocess.TimeoutExpired:
-                self.root.after(0, lambda: (
-                    self.log_listbox.insert(tk.END, "⚠️ Quá thời gian cài Chromium. Kiểm tra kết nối mạng!"),
-                    self.log_listbox.see(tk.END),
-                    self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
-                ))
-            except Exception as ex:
-                self.root.after(0, lambda e=str(ex): (
-                    self.log_listbox.insert(tk.END, f"❌ Lỗi cài Chromium: {e}"),
-                    self.log_listbox.see(tk.END),
-                    self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
-                ))
-
-        threading.Thread(target=_install, daemon=True).start()
+        frame.rowconfigure(9, weight=1)
 
     def choose_browser(self):
         path = filedialog.askopenfilename(title="Chọn file chạy trình duyệt (Chromium/Chrome)")
@@ -278,25 +211,18 @@ class NamcoBotGUI:
         self.root.after(50, self.update_logs)
 
     def save_settings(self):
-        """Lưu toàn bộ: cài đặt cố định vào config.json, credentials vào user_config.json"""
-        # config.json - chỉ lưu giá trị cố định
+        """Lưu toàn bộ cài đặt vào config.json duy nhất"""
         cfg = load_json_config()
         try:
             cfg["worker_count"] = int(self.workers_var.get())
         except:
             cfg["worker_count"] = 3
-        cfg["headless"]      = self.headless_var.get()
-        cfg["browser_path"]  = self.browser_path_var.get()
-        cfg["use_proxy"]     = self.proxy_var.get()
+        cfg["headless"] = self.headless_var.get()
+        cfg["use_proxy"] = self.proxy_var.get()
+        cfg["browser_path"] = self.browser_path_var.get()
+        cfg["default_dob"] = self.default_dob_var.get()
+        cfg["default_prefecture"] = self.default_pref_var.get()
         save_json_config(cfg)
-
-        # user_config.json - credentials nhạy cảm của client
-        ucfg = load_user_config()
-        ucfg["sms_username"]     = self.sms_user_var.get().strip()
-        ucfg["sms_password"]     = self.sms_pass_var.get().strip()
-        ucfg["catchall_inbox"]   = self.email_inbox_var.get().strip()
-        ucfg["catchall_password"] = self.email_pass_var.get().strip()
-        save_user_config(ucfg)
 
     def start_bot(self):
         # Lưu config trước
@@ -323,12 +249,29 @@ class NamcoBotGUI:
     def stop_bot(self):
         """Gửi lệnh dừng cho bot — set STOP_FLAG trực tiếp trên module đang chạy."""
         self.stop_btn.config(state=tk.DISABLED, text="⏳ ĐANG DỪNG...")
-        self.log_listbox.insert(tk.END, "🛑 Đang gửi lệnh dừng đến các worker. Vui lòng đợi...")
+        self.log_listbox.insert(tk.END, "🛑 Đang cưỡng chế dừng tất cả tiến trình và đóng trình duyệt...")
         self.log_listbox.see(tk.END)
 
         # Import trực tiếp module đang chạy và set flag — KHÔNG reload
         import src.config as bot_config
         bot_config.STOP_FLAG = True
+
+        # Kill trực tiếp các tiến trình Chrome/Chromium của bot ở cấp độ OS (Thread-safe & Tức thời)
+        import subprocess
+        import sys
+        
+        def kill_os_processes():
+            try:
+                if sys.platform == "win32":
+                    # Lệnh Windows
+                    subprocess.run('wmic process where "commandline like \'%namco_browser_worker%\'" call terminate', shell=True, capture_output=True)
+                else:
+                    # Lệnh macOS/Linux
+                    subprocess.run(["pkill", "-9", "-f", "namco_browser_worker"], capture_output=True)
+            except Exception:
+                pass
+            
+        threading.Thread(target=kill_os_processes, daemon=True).start()
 
     def run_bot_thread(self, limit):
         import main
@@ -359,6 +302,27 @@ class NamcoBotGUI:
                 self.log_listbox.insert(tk.END, "✅ Trạng thái: Đã hoàn tất công việc!")
                 self.log_listbox.see(tk.END)
             self.root.after(0, update_done)
+
+    def copy_log(self):
+        """Sao chép toàn bộ log trong listbox vào clipboard."""
+        logs = self.log_listbox.get(0, tk.END)
+        if logs:
+            text = "\n".join(logs)
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+            
+            # Đổi chữ hiển thị trên nút tạm thời để báo thành công
+            orig_text = self.copy_btn.cget("text")
+            self.copy_btn.config(text="📋 ĐÃ SAO CHÉP!")
+            self.root.after(1500, lambda: self.copy_btn.config(text=orig_text))
+
+    def on_close(self):
+        """Lưu cấu hình và thoát app an toàn."""
+        try:
+            self.save_settings()
+        except:
+            pass
+        self.root.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()

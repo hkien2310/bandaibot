@@ -292,8 +292,17 @@ def get_bandai_namco_otp_imap_sync(
         remaining = int(deadline - time.time())
         if remaining <= 0:
             break
-        log.debug(f"No OTP yet, retrying in {poll_interval}s (remaining {remaining}s)...")
-        time.sleep(poll_interval)
+        # Chờ ngắt quãng để phản hồi nút STOP ngay lập tức
+        import src.config as config
+        stop_requested = False
+        for _ in range(int(poll_interval * 2)):
+            if config.STOP_FLAG:
+                stop_requested = True
+                break
+            time.sleep(0.5)
+        if stop_requested:
+            log.warning("🛑 Nhận lệnh STOP, dừng chờ OTP Email.")
+            break
 
     log.warning(f"⏰ Timeout {timeout}s — No OTP found for {target_email} via IMAP")
     return None
