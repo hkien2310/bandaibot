@@ -68,18 +68,20 @@ class NamcoBotGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Namco Parks Auto Bot")
-        self.root.geometry("640x560")
+        self.root.geometry("640x620")
         self.root.resizable(False, False)
 
         cfg  = load_json_config()
         ucfg = load_user_config()
-        self.limit_var       = tk.StringVar(value="")
-        self.workers_var     = tk.StringVar(value=str(cfg.get("worker_count", 3)))
-        self.headless_var    = tk.BooleanVar(value=cfg.get("headless", True))
-        self.proxy_var       = tk.BooleanVar(value=cfg.get("use_proxy", True))
+        self.limit_var        = tk.StringVar(value="")
+        self.workers_var      = tk.StringVar(value=str(cfg.get("worker_count", 3)))
+        self.headless_var     = tk.BooleanVar(value=cfg.get("headless", True))
+        self.proxy_var        = tk.BooleanVar(value=cfg.get("use_proxy", True))
         self.browser_path_var = tk.StringVar(value=cfg.get("browser_path", ""))
-        self.sms_user_var    = tk.StringVar(value=ucfg.get("sms_username", ""))
-        self.sms_pass_var    = tk.StringVar(value=ucfg.get("sms_password", ""))
+        self.sms_user_var     = tk.StringVar(value=ucfg.get("sms_username", ""))
+        self.sms_pass_var     = tk.StringVar(value=ucfg.get("sms_password", ""))
+        self.email_inbox_var  = tk.StringVar(value=ucfg.get("catchall_inbox", ""))
+        self.email_pass_var   = tk.StringVar(value=ucfg.get("catchall_password", ""))
 
         self.setup_ui()
 
@@ -119,8 +121,15 @@ class NamcoBotGUI:
         ttk.Label(frame, text="SMS Password:").grid(row=5, column=0, sticky=tk.W, pady=3)
         ttk.Entry(frame, textvariable=self.sms_pass_var, width=30, show="*").grid(row=5, column=1, sticky=tk.W, pady=3)
 
+        # Email credentials
+        ttk.Label(frame, text="Email Inbox:").grid(row=6, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(frame, textvariable=self.email_inbox_var, width=30).grid(row=6, column=1, sticky=tk.W, pady=3)
+
+        ttk.Label(frame, text="Email Password:").grid(row=7, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(frame, textvariable=self.email_pass_var, width=30, show="*").grid(row=7, column=1, sticky=tk.W, pady=3)
+
         btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=6, column=0, columnspan=3, pady=8)
+        btn_frame.grid(row=8, column=0, columnspan=3, pady=8)
 
         self.start_btn = ttk.Button(btn_frame, text="🚀 BẮt ĐẦU CHẠY", command=self.start_bot, width=20)
         self.start_btn.pack(side=tk.LEFT, padx=5)
@@ -130,7 +139,7 @@ class NamcoBotGUI:
 
         # Link Google Sheet
         sheet_frame = ttk.Frame(frame)
-        sheet_frame.grid(row=7, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
+        sheet_frame.grid(row=9, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
         ttk.Label(sheet_frame, text="📊 Google Sheet:").pack(side=tk.LEFT)
         self.sheet_link = tk.Label(
             sheet_frame, text="(chưa cấu hình)",
@@ -141,12 +150,12 @@ class NamcoBotGUI:
         self.sheet_link.bind("<Button-1>", self.open_sheet_link)
         self._update_sheet_link()
 
-        ttk.Label(frame, text="Tiến trình đang chạy:").grid(row=8, column=0, sticky=tk.W, pady=5)
-        self.log_listbox = tk.Listbox(frame, height=8, bg="#f0f0f0", fg="#333", font=("Arial", 11))
-        self.log_listbox.grid(row=9, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
+        ttk.Label(frame, text="Tiến trình đang chạy:").grid(row=10, column=0, sticky=tk.W, pady=5)
+        self.log_listbox = tk.Listbox(frame, height=6, bg="#f0f0f0", fg="#333", font=("Arial", 11))
+        self.log_listbox.grid(row=11, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(9, weight=1)
+        frame.rowconfigure(11, weight=1)
 
     def _check_and_install_browser(self):
         """Kiểm tra Playwright Chromium, nếu chưa có thì tự cài trong background."""
@@ -283,8 +292,10 @@ class NamcoBotGUI:
 
         # user_config.json - credentials nhạy cảm của client
         ucfg = load_user_config()
-        ucfg["sms_username"] = self.sms_user_var.get().strip()
-        ucfg["sms_password"] = self.sms_pass_var.get().strip()
+        ucfg["sms_username"]     = self.sms_user_var.get().strip()
+        ucfg["sms_password"]     = self.sms_pass_var.get().strip()
+        ucfg["catchall_inbox"]   = self.email_inbox_var.get().strip()
+        ucfg["catchall_password"] = self.email_pass_var.get().strip()
         save_user_config(ucfg)
 
     def start_bot(self):
