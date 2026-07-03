@@ -26,6 +26,12 @@ jobs:
     - name: Install Playwright browsers
       run: playwright install chromium
 
+    - name: Prepare dummy config and data for PyInstaller
+      run: |
+        mkdir data
+        echo "{}" > config.json
+        echo "{}" > data/credentials.json
+
     - name: Build EXE with PyInstaller
       run: |
         pyinstaller --noconfirm --onedir --windowed `
