@@ -70,10 +70,13 @@ class BrowserInstance:
 
         # CHẾ ĐỘ TIẾT KIỆM BĂNG THÔNG: Chặn tải ảnh, video, font chữ
         async def block_heavy_resources(route):
-            if route.request.resource_type in ["image", "media", "font"]:
-                await route.abort()
-            else:
-                await route.continue_()
+            try:
+                if route.request.resource_type in ["image", "media", "font"]:
+                    await route.abort()
+                else:
+                    await route.continue_()
+            except Exception:
+                pass
         
         await self.context.route("**/*", block_heavy_resources)
         log.info("✅ Đã bật chế độ tiết kiệm băng thông (chặn ảnh/video/font) cho toàn bộ trình duyệt")
