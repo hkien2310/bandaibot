@@ -75,8 +75,8 @@ class BrowserInstance:
             else:
                 await route.continue_()
         
-        await page.route("**/*", block_heavy_resources)
-        log.info("✅ Đã bật chế độ tiết kiệm băng thông (chặn ảnh/video/font)")
+        await self.context.route("**/*", block_heavy_resources)
+        log.info("✅ Đã bật chế độ tiết kiệm băng thông (chặn ảnh/video/font) cho toàn bộ trình duyệt")
 
         # Thiết lập Virtual WebAuthn Authenticator để chặn popup Bluetooth/USB Passkey của Chrome
         try:
