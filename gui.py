@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 import json
 import threading
+import subprocess
 import sys
 import queue
 import re
@@ -70,6 +71,9 @@ class NamcoBotGUI:
         sys.stdout = TextRedirector(self.log_queue)
         sys.stderr = TextRedirector(self.log_queue)
 
+        # Kiểm tra và tự cài Playwright Chromium nếu chưa có
+        self.root.after(300, self._check_and_install_browser)
+
     def setup_ui(self):
         frame = ttk.Frame(self.root, padding="15")
         frame.pack(fill=tk.BOTH, expand=True)
@@ -119,6 +123,71 @@ class NamcoBotGUI:
 
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(7, weight=1)
+
+    def _check_and_install_browser(self):
+        """Kiểm tra Playwright Chromium, nếu chưa có thì tự cài trong background."""
+        def _is_chromium_installed():
+            try:
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    # Chỉ check executable path tồn tại, không mở browser
+                    exe = p.chromium.executable_path
+                    return Path(exe).exists()
+            except Exception:
+                return False
+
+        def _install():
+            self.start_btn.config(state=tk.DISABLED, text="⏳ Đang cài trình duyệt...")
+            self.log_listbox.insert(tk.END, "🔧 Kiểm tra Playwright Chromium...")
+            self.log_listbox.see(tk.END)
+
+            if _is_chromium_installed():
+                self.root.after(0, lambda: (
+                    self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY"),
+                    self.log_listbox.insert(tk.END, "✅ Trình duyệt sẵn sàng."),
+                    self.log_listbox.see(tk.END)
+                ))
+                return
+
+            # Chưa có → tự cài
+            self.root.after(0, lambda: (
+                self.log_listbox.insert(tk.END, "📥 Lần đầu chạy: Đang cài Chromium (~300MB), vui lòng đợi..."),
+                self.log_listbox.see(tk.END)
+            ))
+
+            try:
+                # Chạy playwright install chromium
+                result = subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
+                    capture_output=True, text=True, timeout=300
+                )
+                if result.returncode == 0:
+                    self.root.after(0, lambda: (
+                        self.log_listbox.insert(tk.END, "✅ Cài Chromium thành công! Sẵn sàng chạy bot."),
+                        self.log_listbox.see(tk.END),
+                        self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
+                    ))
+                else:
+                    err = result.stderr[:200] if result.stderr else "Unknown error"
+                    self.root.after(0, lambda e=err: (
+                        self.log_listbox.insert(tk.END, f"❌ Cài Chromium thất bại: {e}"),
+                        self.log_listbox.see(tk.END),
+                        self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
+                    ))
+            except subprocess.TimeoutExpired:
+                self.root.after(0, lambda: (
+                    self.log_listbox.insert(tk.END, "⚠️ Quá thời gian cài Chromium. Kiểm tra kết nối mạng!"),
+                    self.log_listbox.see(tk.END),
+                    self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
+                ))
+            except Exception as ex:
+                self.root.after(0, lambda e=str(ex): (
+                    self.log_listbox.insert(tk.END, f"❌ Lỗi cài Chromium: {e}"),
+                    self.log_listbox.see(tk.END),
+                    self.start_btn.config(state=tk.NORMAL, text="🚀 BẮT ĐẦU CHẠY")
+                ))
+
+        threading.Thread(target=_install, daemon=True).start()
 
     def choose_browser(self):
         path = filedialog.askopenfilename(title="Chọn file chạy trình duyệt (Chromium/Chrome)")
