@@ -69,7 +69,11 @@ class RegistrationWorker:
                 "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"
             ]
 
-            nickname = generate_nickname(email)
+            nickname_from_sheet = email_data.get("nickname", "").strip()
+            if nickname_from_sheet:
+                nickname = nickname_from_sheet
+            else:
+                nickname = generate_nickname(email)
             
             # Khởi tạo thông tin ghi kết quả ban đầu
             result_data = {
