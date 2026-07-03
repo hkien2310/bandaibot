@@ -150,7 +150,7 @@ class GoogleSheetsManager:
                     raw_email = row[email_idx].strip() if len(row) > email_idx else ""
                     status = row[status_idx].strip().upper() if len(row) > status_idx else ""
                     
-                    if raw_email and status in ["", "PENDING", "FAIL", "FAILED", "ERROR"]:
+                    if raw_email and status in ["", "PENDING", "FAIL", "FAILED", "ERROR", "HAS_BNID"]:
                         parsed = self._parse_email_combo(raw_email)
                         pending_emails.append(parsed)
                         
@@ -257,3 +257,22 @@ class GoogleSheetsManager:
             log.info(f"Đã backup acc vào {backup_file}")
         except Exception as e:
             log.error(f"Không thể ghi file backup local: {e}")
+
+    def get_account_status(self, email: str) -> str | None:
+        """Tra cứu status của email trên sheet Accounts. Trả về status hoặc None nếu chưa có."""
+        if not self.is_connected():
+            return None
+        with self.lock:
+            try:
+                cell = self.accounts_sheet.find(email)
+                if cell:
+                    row = self.accounts_sheet.row_values(cell.row)
+                    # Status ở cột thứ 8 (index 7)
+                    status_idx = self.accounts_columns.index("Status")
+                    if len(row) > status_idx:
+                        return row[status_idx].strip().upper()
+                return None
+            except Exception as e:
+                if "CellNotFound" not in str(type(e)):
+                    log.warning(f"Lỗi tra cứu status cho {email}: {e}")
+                return None

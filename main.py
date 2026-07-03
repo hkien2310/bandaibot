@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 
 import src.config as config
-from src.utils.logger import get_logger, add_file_handler
+from src.utils.logger import get_logger
 from src.utils.proxy_pool import ProxyPool
 from src.utils.google_sheets_manager import GoogleSheetsManager
 from src.core.email_reader import generate_account_email
@@ -47,8 +47,6 @@ async def main_async():
         sys.exit(1)
     # --------------------------------------------
 
-    # Khởi tạo log file
-    add_file_handler(str(config.DATA_DIR / "run.log"))
     log.info("="*50)
     log.info("🔥 BẮT ĐẦU CHẠY BOT ĐĂNG KÝ NAMCO PARKS")
     log.info("="*50)

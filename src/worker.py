@@ -11,7 +11,7 @@ from src.flows.step4_parks_profile import run_step4
 from src.flows.step5_sms_verification import run_step5
 from src.utils.data_gen import generate_birthday, generate_nickname, generate_password
 from src.utils.logger import get_logger, set_worker_prefix
-from src.utils.checkpoint import load_checkpoint, save_checkpoint, clear_checkpoint, step_done, mark_step_done
+
 
 log = get_logger("worker")
 
@@ -42,19 +42,10 @@ class RegistrationWorker:
                 log.info("Queue trống. Worker kết thúc.")
                 break
 
-            # (Không cần check CSV nữa vì get_pending_emails đã lọc rồi)
-            # Load checkpoint nếu có (resume từ bước trước)
-            # DO SẾP YÊU CẦU LUÔN CHẠY SIGNUP, TA BỎ QUA CHECKPOINT LUÔN ĐỂ CHẠY TỪ ĐẦU
-            cp = {}
-
-            # Sinh/đọc dữ liệu — dùng checkpoint nếu có để đảm bảo nhất quán
-            password = cp.get("password") or generate_password(email)
-            birthday = cp.get("birthday") or generate_birthday(email)
-            nickname = cp.get("nickname") or generate_nickname(email)
-
-            # Cập nhật checkpoint với dữ liệu cơ bản
-            cp.update({"email": email, "password": password, "birthday": birthday, "nickname": nickname})
-            save_checkpoint(email, cp)
+            # Sinh/đọc dữ liệu
+            password = generate_password(email)
+            birthday = generate_birthday(email)
+            nickname = generate_nickname(email)
             
             # Khởi tạo thông tin ghi kết quả ban đầu
             result_data = {
@@ -62,15 +53,18 @@ class RegistrationWorker:
                 "bandai_password": password,
                 "namco_password": password,
                 "nickname": nickname,
-                "phone": cp.get("parks_phone", ""),
-                "bnid_user_code": cp.get("bnid_user_code", ""),
+                "phone": "",
+                "bnid_user_code": "",
                 "proxy_used": "",
                 "status": "PROCESSING",
                 "error_details": ""
             }
 
-            # BỎ QUA LOGIN THEO YÊU CẦU CỦA SẾP (LUÔN CHẠY SIGNUP MỚI)
-            has_bnid_local = False
+            # Kiểm tra trên Sheet Accounts xem email này đã có BNID chưa
+            existing_status = self.sheets_manager.get_account_status(email)
+            has_bnid_local = existing_status in ("HAS_BNID",)
+            if has_bnid_local:
+                log.info(f"📋 Sheet Accounts cho thấy {email} đã có BNID (status={existing_status}). Sẽ chạy luồng LOGIN.")
             
             # Chỉ thử 1 lần cho mỗi lượt chạy. Lỗi thì chuyển sang account tiếp theo luôn.
             max_retries = 1
@@ -145,12 +139,11 @@ class RegistrationWorker:
                         else:
                             raise Exception("Không tìm được proxy sống sau 3 lần thử.")
                         
-                    asyncio.run(self._process_account_async(email, password, nickname, birthday, proxy, result_data, has_bnid_local, cp, email_password))
+                    asyncio.run(self._process_account_async(email, password, nickname, birthday, proxy, result_data, has_bnid_local, email_password))
                     # Nếu thành công
                     has_bnid_local = True
                     success = True
                     self.proxy_pool.mark_used(proxy_idx)
-                    clear_checkpoint(email)  # Xóa checkpoint sau khi SUCCESS
                     break
                 except Exception as e:
                     error_msg = str(e)
@@ -174,11 +167,10 @@ class RegistrationWorker:
                     if is_permanent:
                         log.error(f"🚫 Lỗi KHÔNG THỂ RETRY: {error_msg[:200]}")
                         if "EMAIL_ALREADY_IN_USE" in error_msg or "Email đã được sử dụng" in error_msg:
-                            result_data["status"] = "ALREADY_REGISTERED"
+                            result_data["status"] = "HAS_BNID"
                         else:
                             result_data["status"] = "ABORTED"
                         result_data["error_details"] = error_msg[:200]
-                        clear_checkpoint(email) # Xóa checkpoint dọn rác ổ cứng vì không bao giờ chạy lại
                         self.proxy_pool.mark_used(proxy_idx)
                         break  # Thoát vòng retry ngay
                     
@@ -190,12 +182,11 @@ class RegistrationWorker:
                         self.proxy_pool.mark_failed(proxy_idx)
                         is_proxy_error = True
                     
-                    # Nếu đã có BNID thì lần retry tiếp sẽ đăng nhập thay vì đăng ký
                     if result_data["bnid_user_code"] != "":
-                        has_bnid_local = True
-                        cp["has_bnid"] = True
-                        save_checkpoint(email, cp)
-                        log.info("   -> Đã có BNID. Lần thử tiếp sẽ đăng nhập thay vì đăng ký.")
+                        log.info("   -> Đã tạo BNID thành công nhưng lỗi ở bước sau. Đánh dấu HAS_BNID và bỏ qua không thử lại.")
+                        result_data["status"] = "HAS_BNID"
+                        self.proxy_pool.mark_used(proxy_idx)
+                        break
 
                     result_data["status"] = "FAILED"
                     result_data["error_details"] = error_msg[:200]
@@ -221,97 +212,73 @@ class RegistrationWorker:
             self.email_queue.task_done()
             log.info(f"Kết thúc xử lý tài khoản {email}\n" + "-"*50)
 
-    async def _process_account_async(self, email, password, nickname, birthday, proxy, result_data, has_bnid_local, cp: dict, email_password: str = ""):
+    async def _process_account_async(self, email, password, nickname, birthday, proxy, result_data, has_bnid_local, email_password: str = ""):
         """Chạy các bước đăng ký tuần tự trong cùng một event loop."""
         browser = BrowserInstance(worker_id=self.worker_id, proxy=proxy)
         try:
             page = await browser.start()
 
             # ═══════════════════════════════════════════════
-            # CÁC BƯỚC ĐĂNG KÝ (CÓ THỂ RESUME TỪ CHECKPOINT)
+            # CÁC BƯỚC ĐĂNG KÝ / ĐĂNG NHẬP
             # ═══════════════════════════════════════════════
 
             if config.STOP_FLAG: raise Exception("KeyboardInterrupt")
 
             # Step 1: Vào trang chủ + Click link đăng ký
-            if 1 not in cp.get("steps_done", []):
-                try:
-                    await run_step1(page)
-                    cp = mark_step_done(cp, 1)
-                    save_checkpoint(email, cp)
-                except Exception as e:
-                    raise Exception(f"Lỗi Bước 1 (Vào trang chủ): {str(e).split('Call log')[0].strip()}")
+            try:
+                await run_step1(page)
+            except Exception as e:
+                raise Exception(f"Lỗi Bước 1 (Vào trang chủ): {str(e).split('Call log')[0].strip()}")
 
             # Step 2: Click nút vàng Get BNID
-            if 2 not in cp.get("steps_done", []):
-                try:
-                    await run_step2(page, has_bnid=has_bnid_local)
-                    cp = mark_step_done(cp, 2)
-                    save_checkpoint(email, cp)
-                except Exception as e:
-                    raise Exception(f"Lỗi Bước 2 (Click nút Get BNID): {str(e).split('Call log')[0].strip()}")
+            try:
+                await run_step2(page, has_bnid=has_bnid_local)
+            except Exception as e:
+                raise Exception(f"Lỗi Bước 2 (Click nút Get BNID): {str(e).split('Call log')[0].strip()}")
 
             # Step 3: Đăng ký BNID + Nhập OTP Email + Bóc BNID User Code
-            if 3 not in cp.get("steps_done", []):
-                try:
-                    bnid_user_code = await run_step3(page, email, password, birthday, has_bnid=has_bnid_local, email_password=email_password)
-                    if bnid_user_code and bnid_user_code != "ALREADY_LOGGED_IN":
-                        result_data["bnid_user_code"] = bnid_user_code
-                        cp["bnid_user_code"] = bnid_user_code
-                    cp = mark_step_done(cp, 3, bnid_user_code=bnid_user_code if bnid_user_code else None)
-                    cp["has_bnid"] = True
-                    save_checkpoint(email, cp)
-                    log.info(f"✅ Step 3 done — BNID: {bnid_user_code}")
-                    # (Không cần append giữa chừng lên Sheets để tránh rác data)
-                except Exception as e:
-                    err = str(e)
-                    if "Không nhận được OTP email" in err:
-                        raise Exception("Lỗi Bước 3 (OTP Email): Không nhận được OTP từ Bandai Namco sau 120s.")
-                    elif "EMAIL_ALREADY_IN_USE" in err:
-                        raise Exception("Lỗi Bước 3 (Tạo BNID): Email đã được sử dụng.")
-                    else:
-                        raise Exception(f"Lỗi Bước 3 (Tạo BNID): Mạng chậm hoặc web thay đổi ({err.split('Call log')[0].strip()})")
-
-            # Cập nhật BNID từ checkpoint nếu có
-            if cp.get("bnid_user_code") and not result_data.get("bnid_user_code"):
-                result_data["bnid_user_code"] = cp["bnid_user_code"]
+            try:
+                bnid_user_code = await run_step3(page, email, password, birthday, has_bnid=has_bnid_local, email_password=email_password)
+                if bnid_user_code and bnid_user_code != "ALREADY_LOGGED_IN":
+                    result_data["bnid_user_code"] = bnid_user_code
+                log.info(f"✅ Step 3 done — BNID: {bnid_user_code}")
+                # (Không cần append giữa chừng lên Sheets để tránh rác data)
+            except Exception as e:
+                err = str(e)
+                if "Không nhận được OTP email" in err:
+                    raise Exception("Lỗi Bước 3 (OTP Email): Không nhận được OTP từ Bandai Namco sau 120s.")
+                elif "EMAIL_ALREADY_IN_USE" in err:
+                    raise Exception("Lỗi Bước 3 (Tạo BNID): Email đã được sử dụng.")
+                else:
+                    raise Exception(f"Lỗi Bước 3 (Tạo BNID): Mạng chậm hoặc web thay đổi ({err.split('Call log')[0].strip()})")
 
             # Step 4: Điền Profile Namco Parks + Thuê số điện thoại
-            if 4 not in cp.get("steps_done", []):
-                try:
-                    step4_result = await run_step4(page, email, password, nickname, birthday)
-                    phone, pkey = step4_result  # run_step4 luôn trả tuple (phone, pkey)
-                    
-                    if phone == "ALREADY_REGISTERED":
-                        log.info(f"🎉 Tài khoản {email} đã được liên kết Namco Parks và xác thực SĐT trước đó.")
-                        result_data["status"] = "SUCCESS"
-                        result_data["error_details"] = "Đã liên kết Namco Parks từ trước"
-                        clear_checkpoint(email)
-                        return  # Kết thúc sớm
+            try:
+                step4_result = await run_step4(page, email, password, nickname, birthday)
+                phone, pkey = step4_result  # run_step4 luôn trả tuple (phone, pkey)
+                
+                if phone == "ALREADY_REGISTERED":
+                    log.info(f"🎉 Tài khoản {email} đã được liên kết Namco Parks và xác thực SĐT trước đó.")
+                    result_data["status"] = "SUCCESS"
+                    result_data["error_details"] = "Đã liên kết Namco Parks từ trước"
+                    return  # Kết thúc sớm
 
-                    result_data["phone"] = phone
-                    cp = mark_step_done(cp, 4, parks_phone=phone, parks_pkey=pkey)
-                    save_checkpoint(email, cp)
-                    log.info(f"✅ Step 4 done — Phone: {phone}")
-                    # (Không cần append giữa chừng)
-                except Exception as e:
-                    raise Exception(f"Lỗi Bước 4 (Điền Profile): {str(e).split('Call log')[0].strip()}")
+                result_data["phone"] = phone
+                log.info(f"✅ Step 4 done — Phone: {phone}")
+                # (Không cần append giữa chừng)
+            except Exception as e:
+                raise Exception(f"Lỗi Bước 4 (Điền Profile): {str(e).split('Call log')[0].strip()}")
 
             # Step 5: Xác thực SMS OTP
-            if 5 not in cp.get("steps_done", []):
-                phone = cp.get("parks_phone", result_data.get("phone", ""))
-                pkey = cp.get("parks_pkey", "")
-                try:
-                    await run_step5(page, phone, pkey)
-                    cp = mark_step_done(cp, 5)
-                    save_checkpoint(email, cp)
-                    log.info("✅ Step 5 done — SMS Verified successfully")
-                except Exception as e:
-                    err = str(e)
-                    if "SMS_OTP_TIMEOUT" in err:
-                        raise Exception(f"Lỗi Bước 5 (Xác thực SMS): Không nhận được OTP từ API (SĐT: {phone})")
-                    else:
-                        raise Exception(f"Lỗi Bước 5 (Xác thực SMS): {err.split('Call log')[0].strip()}")
+            try:
+                await run_step5(page, phone, pkey)
+                log.info("✅ Step 5 done — SMS Verified successfully")
+            except Exception as e:
+                err = str(e)
+                if "SMS_OTP_TIMEOUT" in err:
+                    raise Exception(f"Lỗi Bước 5 (Xác thực SMS): Không nhận được OTP từ API (SĐT: {phone})")
+                else:
+                    raise Exception(f"Lỗi Bước 5 (Xác thực SMS): {err.split('Call log')[0].strip()}")
 
             # ═══════════════════════════════════════════════
             # HOÀN THÀNH — Đánh dấu SUCCESS
@@ -332,8 +299,6 @@ class RegistrationWorker:
                         bnid_code = match.group(0).strip()
                         log.info(f"✅ Đã lấy được BNID User Code từ Portal: {bnid_code}")
                         result_data["bnid_user_code"] = bnid_code
-                        cp["bnid_user_code"] = bnid_code
-                        save_checkpoint(email, cp)
                     else:
                         log.warning("⚠️ Không tìm thấy BNID User Code trên portal.")
                 except Exception as e:
