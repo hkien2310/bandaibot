@@ -72,6 +72,8 @@ class RegistrationWorker:
             nickname_from_sheet = email_data.get("nickname", "").strip()
             if nickname_from_sheet:
                 nickname = nickname_from_sheet
+            elif getattr(config, "DEFAULT_NICKNAME", ""):
+                nickname = config.DEFAULT_NICKNAME
             else:
                 nickname = generate_nickname(email)
             

@@ -55,7 +55,8 @@ SMS_OTP_TIMEOUT     = _get("sms_otp_timeout", 300)
 DEFAULT_PASSWORD    = _get("default_password", "Namco2025!")
 DEFAULT_GENDER      = _get("default_gender", "回答しない")
 DEFAULT_PREFECTURE  = _get("default_prefecture", "愛知県")
-DEFAULT_DOB         = _get("default_dob", "1994-05-08")
+DEFAULT_DOB         = _get("default_dob", "1990-11-12")
+DEFAULT_NICKNAME    = _get("default_nickname", "ヴオン・ドゥック・タイン")
 KEEP_BROWSER_OPEN   = _get("keep_browser_open", False)
 
 # Email config
