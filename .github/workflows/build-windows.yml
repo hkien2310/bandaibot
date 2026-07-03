@@ -27,11 +27,26 @@ jobs:
       run: playwright install chromium
 
     - name: Generate embedded secrets
+      shell: bash
       env:
         GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         GSPREAD_CREDENTIALS: ${{ secrets.GSPREAD_CREDENTIALS }}
       run: |
-        python -c "import os, json; sheet=os.environ.get('GOOGLE_SHEET_ID',''); cred=os.environ.get('GSPREAD_CREDENTIALS','{}'); d=json.loads(cred) if cred else {}; open('src/embedded_credentials.py','w',encoding='utf-8').write(f'SECRETS = {{\n    \"GOOGLE_SHEET_ID\": {repr(sheet)},\n    \"CREDENTIALS_DICT\": {repr(d)}\n}}\n')"
+        cat << 'EOF' > gen_secrets.py
+        import os, json
+        sheet = os.environ.get('GOOGLE_SHEET_ID', '')
+        cred = os.environ.get('GSPREAD_CREDENTIALS', '{}')
+        try:
+            d = json.loads(cred)
+        except:
+            d = {}
+        with open('src/embedded_credentials.py', 'w', encoding='utf-8') as f:
+            f.write("SECRETS = {\n")
+            f.write(f'    "GOOGLE_SHEET_ID": {repr(sheet)},\n')
+            f.write(f'    "CREDENTIALS_DICT": {repr(d)}\n')
+            f.write("}\n")
+        EOF
+        python gen_secrets.py
 
     - name: Prepare default config.json
       run: |
