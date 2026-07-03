@@ -59,6 +59,16 @@ class RegistrationWorker:
             if not prefecture:
                 prefecture = config.DEFAULT_PREFECTURE
 
+            VALID_PREFECTURES = [
+                "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", 
+                "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県", 
+                "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", 
+                "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県", 
+                "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県", 
+                "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県", 
+                "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"
+            ]
+
             nickname = generate_nickname(email)
             
             # Khởi tạo thông tin ghi kết quả ban đầu
@@ -75,6 +85,16 @@ class RegistrationWorker:
                 "status": "PROCESSING",
                 "error_details": ""
             }
+
+            if prefecture and prefecture not in VALID_PREFECTURES:
+                error_msg = f"Tỉnh thành '{prefecture}' không hợp lệ. Vui lòng nhập đúng tỉnh thành của Nhật Bản."
+                log.error(f"❌ {error_msg}")
+                result_data["status"] = "ERROR"
+                result_data["error_details"] = error_msg
+                self.sheets_manager.update_email_status(raw_email, "ERROR")
+                self.sheets_manager.append_account(result_data)
+                self.queue_processor.on_task_done()
+                continue
 
             # Kiểm tra trên Sheet Accounts xem email này đã có BNID chưa
             existing_status = self.sheets_manager.get_account_status(email)
