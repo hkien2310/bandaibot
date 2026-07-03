@@ -20,7 +20,7 @@ async def run_step5(page: Page, phone: str, pkey: str) -> str:
         otp_input = await page.wait_for_selector(
             "input[name='verification_code'], input[name='sms_code'], "
             "input[name='otp'], input[name='code'], input[type='text']",
-            timeout=15000,
+            timeout=60000,
         )
         log.info(f"   Tìm thấy ô nhập OTP SMS tại URL: {page.url}")
     except Exception:
@@ -99,13 +99,13 @@ async def run_step5(page: Page, phone: str, pkey: str) -> str:
                 log.info("   Tự động click '認証する'...")
                 auth_btn = await page.wait_for_selector(
                     "button:has-text('認証する'), input[type='submit'][value*='認証']",
-                    timeout=10000
+                    timeout=60000
                 )
                 await auth_btn.click()
                 
                 # Chờ trang web chuyển hướng sau khi submit OTP
                 try:
-                    await page.wait_for_url("**/top.html*", timeout=15000)
+                    await page.wait_for_url("**/top.html*", timeout=60000)
                     log.info(f"✅ Đã về đích an toàn tại trang: {page.url}")
                 except Exception:
                     log.error(f"❌ Lỗi: Sau khi nhập OTP, không thấy về trang top.html! URL hiện tại: {page.url}")
@@ -128,7 +128,7 @@ async def run_step5(page: Page, phone: str, pkey: str) -> str:
                 else:
                     log.warning("   Không tìm thấy nút quay lại, dùng page.goto để quay lại form...")
                     await page.goto("https://parks2.bandainamco-am.co.jp/member_regist_new.html")
-                await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                await page.wait_for_load_state("domcontentloaded", timeout=60000)
                 raise RuntimeError("SMS_OTP_TIMEOUT")
         except Exception as e:
             if "SMS_OTP_TIMEOUT" in str(e):

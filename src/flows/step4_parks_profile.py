@@ -289,7 +289,7 @@ async def run_step4(page: Page, email: str, password: str, nickname: str, birthd
             continue
 
     # Đợi trang Parks load ổn định
-    await page.wait_for_load_state("domcontentloaded", timeout=15000)
+    await page.wait_for_load_state("domcontentloaded", timeout=60000)
     await page.wait_for_timeout(2000)
 
     # ─── 1. Biệt danh ───
@@ -538,7 +538,7 @@ async def run_step4(page: Page, email: str, password: str, nickname: str, birthd
         await page.wait_for_timeout(500)
         confirm_btn = await page.wait_for_selector(
             "button:has-text('入力内容を確認する'), input[type='submit'][value*='確認'], a:has-text('確認')",
-            timeout=15000,
+            timeout=60000,
             state="visible",
         )
         await confirm_btn.scroll_into_view_if_needed()
@@ -631,7 +631,7 @@ async def run_step4(page: Page, email: str, password: str, nickname: str, birthd
             if not has_tel:
                 log.info("   Chưa quay lại trang form. Thực hiện go_back...")
                 await page.go_back()
-                await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                await page.wait_for_load_state("domcontentloaded", timeout=60000)
             continue
 
     if not phone or not pkey:

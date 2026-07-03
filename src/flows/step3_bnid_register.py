@@ -54,7 +54,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
 
         log.info("Submit form đăng nhập BNID...")
         await human_delay(page, 800, 1500)
-        login_btn = await page.wait_for_selector("button#btn-idpw-login", timeout=15000)
+        login_btn = await page.wait_for_selector("button#btn-idpw-login", timeout=60000)
         await login_btn.click()
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=20000)
@@ -74,7 +74,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
                 if agree_btn:
                     log.info("Phát hiện và click nút đồng ý điều khoản bổ sung...")
                     await agree_btn.click()
-                    await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                    await page.wait_for_load_state("domcontentloaded", timeout=60000)
             except Exception:
                 break
 
@@ -120,7 +120,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
     # Submit form đăng ký Email/Password (Nút id='btn-idpw-next')
     log.info("2. Submit form đăng ký Email/Password...")
     await human_delay(page, 1000, 2000)
-    submit_btn = await page.wait_for_selector("button#btn-idpw-next", timeout=15000)
+    submit_btn = await page.wait_for_selector("button#btn-idpw-next", timeout=60000)
     await submit_btn.click()
     try:
         await page.wait_for_load_state("domcontentloaded", timeout=20000)
@@ -172,7 +172,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
     await page.wait_for_selector(
         "input#id_year",
         state="attached",
-        timeout=10000
+        timeout=60000
     )
 
     await human_delay(page, 1000, 2000)
@@ -243,7 +243,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
     except Exception:
         pass
 
-    final_btn = await page.wait_for_selector("button#btn-agree-b", timeout=15000)
+    final_btn = await page.wait_for_selector("button#btn-agree-b", timeout=60000)
     await final_btn.click()
     try:
         await page.wait_for_load_state("domcontentloaded", timeout=20000)
@@ -255,7 +255,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
     # Đợi Bandai Namco xử lý và load xong trang nhập OTP trước khi lật sang tab Mail
     log.info("   Đang chờ Bandai Namco xử lý form và hiện ô nhập OTP...")
     try:
-        await page.wait_for_selector("input#code, input[name='code']", timeout=10000)
+        await page.wait_for_selector("input#code, input[name='code']", timeout=60000)
     except:
         pass
     await page.wait_for_timeout(3000) # Đợi thêm 3s cho chắc chắn Bandai đã gửi mail đi
@@ -284,7 +284,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
 
     # Dùng locator thay vì wait_for_selector để tránh lỗi ElementHandle không có .blur()
     otp_selector = "input[name='authenticationCode'], input[name='code'], input[name='otp'], input[type='text']"
-    await page.wait_for_selector(otp_selector, timeout=15000)
+    await page.wait_for_selector(otp_selector, timeout=60000)
     otp_loc = page.locator(otp_selector).first
     await otp_loc.fill(str(email_otp))
     await human_delay(page, 500, 1000)
@@ -294,7 +294,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
     log.info("   Đã blur OTP field. Đang click nút submit OTP...")
     await human_delay(page, 800, 1500)
     otp_submit_sel = "button[type='submit'], button.c-button--primary, button:has-text('Authenticate'), button:has-text('次へ'), button:has-text('送信'), button:has-text('確認')"
-    otp_submit = await page.wait_for_selector(otp_submit_sel, timeout=10000)
+    otp_submit = await page.wait_for_selector(otp_submit_sel, timeout=60000)
     await otp_submit.click()
     try:
         await page.wait_for_load_state("domcontentloaded", timeout=25000)
@@ -334,7 +334,7 @@ async def run_step3(page: Page, email: str, password: str, birthday: str, has_bn
                 log.info("   Tìm thấy nút đi tiếp. Đang click để qua màn hình này...")
                 await next_btn.click()
                 try:
-                    await page.wait_for_load_state("domcontentloaded", timeout=15000)
+                    await page.wait_for_load_state("domcontentloaded", timeout=60000)
                 except Exception:
                     pass
             else:

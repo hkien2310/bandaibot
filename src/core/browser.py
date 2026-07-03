@@ -68,6 +68,16 @@ class BrowserInstance:
         page.set_default_timeout(90000)
         page.set_default_navigation_timeout(90000)
 
+        # CHẾ ĐỘ TIẾT KIỆM BĂNG THÔNG: Chặn tải ảnh, video, font chữ
+        async def block_heavy_resources(route):
+            if route.request.resource_type in ["image", "media", "font"]:
+                await route.abort()
+            else:
+                await route.continue_()
+        
+        await page.route("**/*", block_heavy_resources)
+        log.info("✅ Đã bật chế độ tiết kiệm băng thông (chặn ảnh/video/font)")
+
         # Thiết lập Virtual WebAuthn Authenticator để chặn popup Bluetooth/USB Passkey của Chrome
         try:
             cdp = await self.context.new_cdp_session(page)

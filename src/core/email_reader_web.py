@@ -31,7 +31,7 @@ async def prepare_outlook_tab(context: BrowserContext, target_email: str, target
         
         # Check if we need to login
         try:
-            await mail_page.wait_for_selector("input[type='email'], input[name='loginfmt']", timeout=10000)
+            await mail_page.wait_for_selector("input[type='email'], input[name='loginfmt']", timeout=60000)
             is_login = True
         except:
             is_login = False
@@ -43,7 +43,7 @@ async def prepare_outlook_tab(context: BrowserContext, target_email: str, target
             await mail_page.wait_for_timeout(2000)
             
             # 3. Fill password
-            await mail_page.wait_for_selector("input[type='password'], input[name='passwd']", timeout=15000)
+            await mail_page.wait_for_selector("input[type='password'], input[name='passwd']", timeout=60000)
             await mail_page.fill("input[type='password'], input[name='passwd']", target_password)
             await mail_page.locator(next_btn_sel).first.click()
             await mail_page.wait_for_timeout(3000)
